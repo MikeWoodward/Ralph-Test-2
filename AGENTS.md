@@ -61,7 +61,10 @@ python manage.py runserver
 - `MBTA_APP.popupCloseTimer` holds the shared timeout ID for popup auto-close
 - Predictions are grouped by `route` key (e.g. "Red", "Green-B") with max 4 per route
 - `initFacilitiesMap()` renders all lines simultaneously on the Map & Facilities page — each init function guards with an element-ID check so only the active page's map initialises
-- Map & Facilities stations have tooltips only (no click popups yet); Story 2.10 will add facility popups
+- Map & Facilities station popups: `fetchAndShowFacilities()` fetches `/api/station/<station_id>`, shows station name + color-coded line badges + facilities list; uses `MBTA_APP.facilityCache` to avoid re-fetching
+- `MBTA_APP.stationLinesMap` maps station_id → [{name, color}] — built during `initFacilitiesMap()` line iteration since `/api/station/` does not return lines served
+- Facilities page uses same popup close-on-mouseout pattern as Trains page (`schedulePopupClose`/`clearPopupCloseTimer`/`popupopen` handler)
+- Use `marker.isPopupOpen()` in mouseover handler to distinguish "cancel pending close" vs "open new popup"
 - `addMapLegend(map, items)` creates a Leaflet `L.control` at bottomright with colored swatches and line names — reusable for any map that needs a legend
 - Legend items are derived by zipping `lineNames` (from `/api/lines`) with `lineDataList` (from parallel fetches) by index — both arrays are aligned by `Promise.all`
 

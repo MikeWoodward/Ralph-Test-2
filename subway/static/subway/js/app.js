@@ -6,6 +6,8 @@ const MBTA_APP = {
     facilitiesMap: null,
     lineLayerGroup: null,
     popupCloseTimer: null,
+    facilityCache: {},
+    stationLinesMap: {},
 };
 
 const BOSTON_CENTER = [42.36, -71.06];
@@ -415,6 +417,105 @@ function addMapLegend(map, items) {
 }
 
 /**
+ * Build the HTML content for a facility popup, showing station name,
+ * lines served (color-coded badges), and a list of facilities.
+ *
+ * @param {string} stationName - Human-readable station name.
+ * @param {string} stationId - MBTA stop ID.
+ * @returns {string} HTML string for the popup.
+ */
+function buildFacilityPopupHtml(stationName, stationId) {
+    const lines = MBTA_APP.stationLinesMap[stationId] || [];
+    const stationData = MBTA_APP.facilityCache[stationId];
+
+    let html =
+        `<div class="facility-popup">` +
+        `<div class="facility-station-name">${stationName}</div>`;
+
+    if (lines.length > 0) {
+        html += `<div class="facility-lines">`;
+        lines.forEach(({ name, color }) => {
+            html +=
+                `<span class="facility-line-badge" ` +
+                `style="background:${color}">${name}</span>`;
+        });
+        html += `</div>`;
+    }
+
+    if (stationData?.facilities?.length) {
+        html += `<div class="facility-list-header">Facilities</div><ul class="facility-list">`;
+        stationData.facilities.forEach((f) => {
+            html += `<li>${f}</li>`;
+        });
+        html += `</ul>`;
+    } else {
+        html += `<p class="facility-none">No facilities listed.</p>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+/**
+ * Fetch station details from /api/station/<station_id> and display
+ * them in a Leaflet popup on the Map & Facilities page. Uses an
+ * in-memory cache so repeated hover/click on the same station
+ * doesn't re-fetch.
+ *
+ * @param {L.CircleMarker} marker - The station marker.
+ * @param {string} stationId - MBTA stop ID.
+ * @param {string} stationName - Human-readable station name.
+ * @param {L.Map} map - The facilities Leaflet map.
+ */
+async function fetchAndShowFacilities(marker, stationId, stationName, map) {
+    if (MBTA_APP.facilityCache[stationId]) {
+        marker.unbindPopup();
+        marker.bindPopup(
+            buildFacilityPopupHtml(stationName, stationId),
+            { autoPan: true, maxWidth: 340, minWidth: 220 }
+        );
+        marker.openPopup();
+        return;
+    }
+
+    const loadingHtml =
+        `<div class="facility-popup">` +
+        `<div class="facility-station-name">${stationName}</div>` +
+        `<p class="facility-loading">Loading station details\u2026</p>` +
+        `</div>`;
+
+    marker.unbindPopup();
+    marker.bindPopup(loadingHtml, {
+        autoPan: true,
+        maxWidth: 340,
+        minWidth: 220,
+    });
+    marker.openPopup();
+
+    try {
+        const response = await fetch(
+            `/api/station/${encodeURIComponent(stationId)}`
+        );
+        if (!response.ok) {
+            throw new Error(`Station API returned ${response.status}`);
+        }
+        const stationData = await response.json();
+        MBTA_APP.facilityCache[stationId] = stationData;
+        marker.setPopupContent(
+            buildFacilityPopupHtml(stationName, stationId)
+        );
+    } catch (error) {
+        console.error("Failed to fetch station details:", error);
+        marker.setPopupContent(
+            `<div class="facility-popup">` +
+            `<div class="facility-station-name">${stationName}</div>` +
+            `<p class="facility-error">Unable to load station details.</p>` +
+            `</div>`
+        );
+    }
+}
+
+/**
  * Initialise the Leaflet map on the Map & Facilities page,
  * rendering every subway line simultaneously with correct colors
  * and station markers.  Fits the map bounds to the entire system.
@@ -454,8 +555,12 @@ async function initFacilitiesMap() {
             })
         );
 
-        lineDataList.forEach((lineData) => {
+        MBTA_APP.stationLinesMap = {};
+        MBTA_APP.facilityCache = {};
+
+        lineDataList.forEach((lineData, idx) => {
             if (!lineData) return;
+            const lineName = lineNames[idx];
             const lineColor = `#${lineData.line_color}`;
 
             lineData.shapes.forEach((shapeCoords) => {
@@ -475,7 +580,16 @@ async function initFacilitiesMap() {
                 if (!station.latitude || !station.longitude) return;
                 allCoords.push([station.latitude, station.longitude]);
 
-                L.circleMarker(
+                if (!MBTA_APP.stationLinesMap[station.station_id]) {
+                    MBTA_APP.stationLinesMap[station.station_id] = [];
+                }
+                const stationLines =
+                    MBTA_APP.stationLinesMap[station.station_id];
+                if (!stationLines.some((l) => l.name === lineName)) {
+                    stationLines.push({ name: lineName, color: lineColor });
+                }
+
+                const stationMarker = L.circleMarker(
                     [station.latitude, station.longitude],
                     {
                         radius: 6,
@@ -490,6 +604,27 @@ async function initFacilitiesMap() {
                         direction: "top",
                         offset: [0, -8],
                     })
+                    .on("click", () => {
+                        fetchAndShowFacilities(
+                            stationMarker,
+                            station.station_id,
+                            station.name,
+                            map
+                        );
+                    })
+                    .on("mouseover", () => {
+                        if (stationMarker.isPopupOpen()) {
+                            clearPopupCloseTimer();
+                        } else {
+                            fetchAndShowFacilities(
+                                stationMarker,
+                                station.station_id,
+                                station.name,
+                                map
+                            );
+                        }
+                    })
+                    .on("mouseout", () => schedulePopupClose(map))
                     .addTo(map);
             });
         });
@@ -511,6 +646,15 @@ async function initFacilitiesMap() {
     } catch (error) {
         console.error("Failed to initialise facilities map:", error);
     }
+
+    map.on("popupopen", (e) => {
+        const popupEl = e.popup.getElement();
+        if (!popupEl) return;
+        popupEl.addEventListener("mouseenter", clearPopupCloseTimer);
+        popupEl.addEventListener("mouseleave", () => {
+            schedulePopupClose(map, 200);
+        });
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
