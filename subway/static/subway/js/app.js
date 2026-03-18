@@ -173,6 +173,64 @@ async function renderLineOnMap(lineName) {
     }
 }
 
+/**
+ * Fetch and display alerts for a subway line in the alerts container.
+ *
+ * Renders each alert as a card with headline and severity badge.
+ * Shows "No current alerts" when the API returns an empty array.
+ *
+ * @param {string} lineName - Display name of the line (e.g. "Red Line").
+ */
+async function renderAlerts(lineName) {
+    const container = document.getElementById("alerts-container");
+    if (!container) return;
+
+    container.innerHTML = '<p class="alerts-loading">Loading alerts…</p>';
+
+    try {
+        const response = await fetch(
+            `/api/alerts/${encodeURIComponent(lineName)}`
+        );
+        if (!response.ok) {
+            throw new Error(
+                `/api/alerts/${lineName} returned ${response.status}`
+            );
+        }
+        const alerts = await response.json();
+
+        if (!alerts.length) {
+            container.innerHTML =
+                `<div class="alerts-header">${lineName} — Alerts</div>` +
+                '<p class="alerts-none">No current alerts for this line.</p>';
+            return;
+        }
+
+        const severityLabel = (severity) => {
+            if (severity >= 7) return "severe";
+            if (severity >= 4) return "moderate";
+            return "minor";
+        };
+
+        const alertCards = alerts
+            .map(
+                (alert) =>
+                    `<div class="alert-card alert-${severityLabel(alert.severity)}">` +
+                    `<span class="alert-severity">${severityLabel(alert.severity)}</span>` +
+                    `<span class="alert-headline">${alert.headline}</span>` +
+                    `</div>`
+            )
+            .join("");
+
+        container.innerHTML =
+            `<div class="alerts-header">${lineName} — Alerts</div>` +
+            alertCards;
+    } catch (error) {
+        console.error("Failed to fetch alerts:", error);
+        container.innerHTML =
+            '<p class="alerts-error">Unable to load alerts.</p>';
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTrainsMap();
     initLineSelector();
@@ -181,6 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const { lineName } = e.detail;
         if (lineName) {
             renderLineOnMap(lineName);
+            renderAlerts(lineName);
         }
     });
 });
