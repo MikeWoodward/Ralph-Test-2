@@ -4,7 +4,12 @@ import traceback
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from subway.schemas import AlertSchema, LineSchema, PredictionSchema
+from subway.schemas import (
+    AlertSchema,
+    LineSchema,
+    PredictionSchema,
+    StationSchema,
+)
 from subway.services import get_mbta
 
 
@@ -183,6 +188,47 @@ def api_predictions(
         return JsonResponse(
             data=predictions,
             safe=False,
+        )
+    except Exception as exc:
+        tb = traceback.extract_tb(sys.exc_info()[2])
+        line_no = tb[-1].lineno if tb else "unknown"
+        return JsonResponse(
+            data={
+                "error": str(exc),
+                "line": line_no,
+            },
+            status=500,
+        )
+
+
+def api_station(
+    request: HttpRequest,
+    station_id: str,
+) -> JsonResponse:
+    """Return station details including facilities for a given station.
+
+    Args:
+        request: The HTTP request object.
+        station_id: MBTA stop ID (e.g. "place-knncl").
+
+    Returns:
+        JsonResponse with station name, coordinates, and facilities,
+        or a 404/500 error object on failure.
+    """
+    try:
+        mbta = get_mbta()
+        station_data = mbta.get_station(station_id=station_id)
+
+        if station_data is None:
+            return JsonResponse(
+                data={"error": f"Station '{station_id}' not found"},
+                status=404,
+            )
+
+        station_data["station_id"] = station_data.pop("id")
+        validated = StationSchema(**station_data)
+        return JsonResponse(
+            data=validated.model_dump(),
         )
     except Exception as exc:
         tb = traceback.extract_tb(sys.exc_info()[2])
