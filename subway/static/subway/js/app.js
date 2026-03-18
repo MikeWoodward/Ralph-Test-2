@@ -131,10 +131,13 @@ async function renderLineOnMap(lineName) {
         const lineData = await response.json();
         const lineColor = `#${lineData.line_color}`;
 
+        const allCoords = [];
+
         lineData.shapes.forEach((shapeCoords) => {
             if (shapeCoords.length < 2) return;
 
             const latLngs = shapeCoords.map(([lat, lng]) => [lat, lng]);
+            allCoords.push(...latLngs);
             L.polyline(latLngs, {
                 color: lineColor,
                 weight: 5,
@@ -161,6 +164,10 @@ async function renderLineOnMap(lineName) {
                 })
                 .addTo(MBTA_APP.lineLayerGroup);
         });
+
+        if (allCoords.length > 0) {
+            map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] });
+        }
     } catch (error) {
         console.error("Failed to render line on map:", error);
     }
