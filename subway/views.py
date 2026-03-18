@@ -1,6 +1,8 @@
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from subway.services import get_mbta
+
 
 def trains_alerts(
     request: HttpRequest,

@@ -28,6 +28,13 @@ python manage.py runserver
 - Static files follow Django's `app/static/app/` namespace convention
 - Leaflet.js and OpenStreetMap tiles loaded from CDN in base template
 
+## Services
+
+- `subway/services.py` provides a thread-safe MBTA singleton via `get_mbta()`
+- Uses double-checked locking (`threading.Lock`) — safe for Django's multi-threaded request handling
+- Import pattern: `from subway.services import get_mbta` then `mbta = get_mbta()`
+- First call takes ~4-5 seconds (API initialization); subsequent calls return instantly
+
 ## Gotchas
 
 - The MBTA class in `subway/MBTA_class.py` loads `.env` from one directory up (`Path(__file__).resolve().parent.parent`), which resolves to the Django project root. The `.env` file must be at the project root.
