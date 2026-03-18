@@ -4,6 +4,12 @@
 
 {% block content %}
 <div id="trains-alerts-page">
+    <div class="line-selector-bar">
+        <label for="line-select">Subway Line:</label>
+        <select id="line-select">
+            <option value="" disabled selected>Select a line</option>
+        </select>
+    </div>
     <div id="trains-map" class="map-container"></div>
 </div>
 {% endblock %}

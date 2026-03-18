@@ -51,6 +51,47 @@ main {
 }
 
 /* ---------------------------------------------------------------------------
+   Line-selector dropdown bar (Trains & Alerts page)
+   --------------------------------------------------------------------------- */
+
+.line-selector-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.line-selector-bar label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #333;
+    white-space: nowrap;
+}
+
+.line-selector-bar select {
+    flex: 1;
+    max-width: 300px;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #333;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.line-selector-bar select:hover {
+    border-color: #888;
+}
+
+.line-selector-bar select:focus {
+    outline: none;
+    border-color: #e03a3e;
+    box-shadow: 0 0 0 2px rgba(224, 58, 62, 0.2);
+}
+
+/* ---------------------------------------------------------------------------
    Map container — used on both Trains & Alerts and Map & Facilities pages
    --------------------------------------------------------------------------- */
 

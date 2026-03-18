@@ -50,6 +50,8 @@ python manage.py runserver
 - Auto-zoom pattern: fetch all lines → collect station coords → `map.fitBounds(L.latLngBounds(coords), { padding: [20, 20] })`
 - Always use `encodeURIComponent()` when interpolating line names into API URLs (they contain spaces)
 - Leaflet CDN (v1.9.4) CSS and JS are loaded in `base.html` — available on every page
+- Inter-component communication: dropdown fires `document.dispatchEvent(new CustomEvent("lineSelected", { detail: { lineName } }))` — listen with `document.addEventListener("lineSelected", (e) => { ... e.detail.lineName ... })`
+- `MBTA_APP.lineLayerGroup` holds the current line's Leaflet layers for clearing on re-selection
 
 ## Gotchas
 

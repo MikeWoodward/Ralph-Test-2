@@ -3,6 +3,7 @@
 
 const MBTA_APP = {
     trainsMap: null,
+    lineLayerGroup: null,
 };
 
 const BOSTON_CENTER = [42.36, -71.06];
@@ -63,6 +64,43 @@ async function initTrainsMap() {
     MBTA_APP.trainsMap = map;
 }
 
+/**
+ * Populate the line-select dropdown with subway line names fetched
+ * from /api/lines.  Attaches a change listener that dispatches a
+ * custom "lineSelected" event on the document for other modules to
+ * react to.
+ */
+async function initLineSelector() {
+    const select = document.getElementById("line-select");
+    if (!select) return;
+
+    try {
+        const response = await fetch("/api/lines");
+        if (!response.ok) {
+            throw new Error(`/api/lines returned ${response.status}`);
+        }
+        const lineNames = await response.json();
+
+        lineNames.forEach((name) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+        });
+
+        select.addEventListener("change", () => {
+            document.dispatchEvent(
+                new CustomEvent("lineSelected", {
+                    detail: { lineName: select.value },
+                })
+            );
+        });
+    } catch (error) {
+        console.error("Failed to populate line selector:", error);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTrainsMap();
+    initLineSelector();
 });
