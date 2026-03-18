@@ -409,3 +409,97 @@ main {
     font-style: italic;
     margin: 4px 0 0;
 }
+
+/* ---------------------------------------------------------------------------
+   About page
+   --------------------------------------------------------------------------- */
+
+.about-page {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 28px 32px;
+    margin-top: 4px;
+}
+
+.about-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1c1c1c;
+    margin-bottom: 10px;
+}
+
+.about-intro {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #555;
+    margin-bottom: 24px;
+}
+
+.about-section {
+    margin-bottom: 24px;
+}
+
+.about-section:last-child {
+    margin-bottom: 0;
+}
+
+.about-section-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1c1c1c;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e03a3e;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+}
+
+.about-card {
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+
+.about-card:last-child {
+    margin-bottom: 0;
+}
+
+.about-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1c1c1c;
+    margin-bottom: 4px;
+}
+
+.about-card-desc {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.about-link {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #1a73e8;
+    text-decoration: none;
+}
+
+.about-link:hover {
+    text-decoration: underline;
+}
+
+.about-link-sep {
+    color: #bbb;
+    margin: 0 4px;
+    font-size: 0.85rem;
+}
+
+.about-author {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+}
