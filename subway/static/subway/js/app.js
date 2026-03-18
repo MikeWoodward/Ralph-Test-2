@@ -3,6 +3,7 @@
 
 const MBTA_APP = {
     trainsMap: null,
+    facilitiesMap: null,
     lineLayerGroup: null,
     popupCloseTimer: null,
 };
@@ -384,9 +385,98 @@ async function renderAlerts(lineName) {
     }
 }
 
+/**
+ * Initialise the Leaflet map on the Map & Facilities page,
+ * rendering every subway line simultaneously with correct colors
+ * and station markers.  Fits the map bounds to the entire system.
+ */
+async function initFacilitiesMap() {
+    const mapEl = document.getElementById("facilities-map");
+    if (!mapEl) return;
+
+    const map = L.map("facilities-map", {
+        center: BOSTON_CENTER,
+        zoom: 13,
+        zoomControl: true,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+    }).addTo(map);
+
+    MBTA_APP.facilitiesMap = map;
+
+    try {
+        const response = await fetch("/api/lines");
+        if (!response.ok) throw new Error(`/api/lines returned ${response.status}`);
+        const lineNames = await response.json();
+
+        const allCoords = [];
+
+        const lineDataList = await Promise.all(
+            lineNames.map(async (name) => {
+                const lineResp = await fetch(
+                    `/api/line/${encodeURIComponent(name)}`
+                );
+                if (!lineResp.ok) return null;
+                return lineResp.json();
+            })
+        );
+
+        lineDataList.forEach((lineData) => {
+            if (!lineData) return;
+            const lineColor = `#${lineData.line_color}`;
+
+            lineData.shapes.forEach((shapeCoords) => {
+                if (shapeCoords.length < 2) return;
+                const latLngs = shapeCoords.map(([lat, lng]) => [lat, lng]);
+                allCoords.push(...latLngs);
+                L.polyline(latLngs, {
+                    color: lineColor,
+                    weight: 5,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    lineJoin: "round",
+                }).addTo(map);
+            });
+
+            lineData.stations.forEach((station) => {
+                if (!station.latitude || !station.longitude) return;
+                allCoords.push([station.latitude, station.longitude]);
+
+                L.circleMarker(
+                    [station.latitude, station.longitude],
+                    {
+                        radius: 6,
+                        color: lineColor,
+                        weight: 2.5,
+                        fillColor: "#ffffff",
+                        fillOpacity: 1,
+                        opacity: 1,
+                    }
+                )
+                    .bindTooltip(station.name, {
+                        direction: "top",
+                        offset: [0, -8],
+                    })
+                    .addTo(map);
+            });
+        });
+
+        if (allCoords.length > 0) {
+            map.fitBounds(L.latLngBounds(allCoords), { padding: [20, 20] });
+        }
+    } catch (error) {
+        console.error("Failed to initialise facilities map:", error);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTrainsMap();
     initLineSelector();
+    initFacilitiesMap();
 
     document.addEventListener("lineSelected", (e) => {
         const { lineName } = e.detail;

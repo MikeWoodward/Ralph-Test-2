@@ -45,7 +45,7 @@ python manage.py runserver
 ## Frontend (JavaScript)
 
 - `app.js` initialises Leaflet maps conditionally based on which page is loaded (checks for element ID)
-- Global state namespace: `MBTA_APP` object holds shared references (e.g. `trainsMap`, future layer groups)
+- Global state namespace: `MBTA_APP` object holds shared references (e.g. `trainsMap`, `facilitiesMap`, layer groups)
 - Map initialisation: Leaflet requires a container element with an explicit height set via CSS before `L.map()` is called
 - Auto-zoom pattern: fetch all lines → collect station coords → `map.fitBounds(L.latLngBounds(coords), { padding: [20, 20] })`
 - Always use `encodeURIComponent()` when interpolating line names into API URLs (they contain spaces)
@@ -60,6 +60,8 @@ python manage.py runserver
 - Popup close-on-mouseout pattern: `schedulePopupClose(map, delay)` on marker mouseout, `clearPopupCloseTimer()` on marker/popup mouseover, popup mouseleave triggers close — use `map.on("popupopen")` to attach DOM-level events to popup element
 - `MBTA_APP.popupCloseTimer` holds the shared timeout ID for popup auto-close
 - Predictions are grouped by `route` key (e.g. "Red", "Green-B") with max 4 per route
+- `initFacilitiesMap()` renders all lines simultaneously on the Map & Facilities page — each init function guards with an element-ID check so only the active page's map initialises
+- Map & Facilities stations have tooltips only (no click popups yet); Story 2.10 will add facility popups
 
 ## Gotchas
 
