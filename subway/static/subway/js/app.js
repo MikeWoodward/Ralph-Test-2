@@ -4,9 +4,141 @@
 const MBTA_APP = {
     trainsMap: null,
     lineLayerGroup: null,
+    popupCloseTimer: null,
 };
 
 const BOSTON_CENTER = [42.36, -71.06];
+
+/** Cancel any pending popup auto-close timer. */
+function clearPopupCloseTimer() {
+    if (MBTA_APP.popupCloseTimer) {
+        clearTimeout(MBTA_APP.popupCloseTimer);
+        MBTA_APP.popupCloseTimer = null;
+    }
+}
+
+/**
+ * Schedule the map popup to close after a delay. Any existing pending
+ * close is cancelled first so multiple calls don't stack.
+ *
+ * @param {L.Map} map - The Leaflet map whose popup should close.
+ * @param {number} [delay=350] - Milliseconds before closing.
+ */
+function schedulePopupClose(map, delay = 350) {
+    clearPopupCloseTimer();
+    MBTA_APP.popupCloseTimer = setTimeout(() => {
+        map.closePopup();
+        MBTA_APP.popupCloseTimer = null;
+    }, delay);
+}
+
+/**
+ * Format an ISO-8601 arrival time as a human-friendly relative string.
+ * Returns "Arriving" for trains due within the current minute, or
+ * "N min" for future arrivals.
+ *
+ * @param {string|null} isoString - ISO-8601 datetime, or null.
+ * @returns {string} Formatted time string.
+ */
+function formatArrivalTime(isoString) {
+    if (!isoString) return "—";
+    const diffMin = Math.round((new Date(isoString) - new Date()) / 60000);
+    if (diffMin <= 0) return "Arriving";
+    if (diffMin === 1) return "1 min";
+    return `${diffMin} min`;
+}
+
+/**
+ * Fetch predictions for a station and display them in a Leaflet popup
+ * bound to the given marker. Groups predictions by route and shows up
+ * to 4 per route. Shows "No subway predictions" when the API returns
+ * an empty array.
+ *
+ * @param {L.CircleMarker} marker - The station marker to bind the popup to.
+ * @param {string} stationId - MBTA stop ID (e.g. "place-knncl").
+ * @param {string} stationName - Human-readable station name.
+ */
+async function fetchAndShowPredictions(marker, stationId, stationName) {
+    const map = MBTA_APP.trainsMap;
+    if (!map) return;
+
+    const loadingHtml =
+        `<div class="prediction-popup">` +
+        `<div class="prediction-station-name">${stationName}</div>` +
+        `<p class="prediction-loading">Loading predictions\u2026</p>` +
+        `</div>`;
+
+    marker.unbindPopup();
+    marker.bindPopup(loadingHtml, {
+        autoPan: true,
+        maxWidth: 320,
+        minWidth: 220,
+    });
+    marker.openPopup();
+
+    try {
+        const response = await fetch(
+            `/api/predictions/${encodeURIComponent(stationId)}`
+        );
+        if (!response.ok) {
+            throw new Error(`Predictions API returned ${response.status}`);
+        }
+        const predictions = await response.json();
+
+        if (!predictions.length) {
+            marker.setPopupContent(
+                `<div class="prediction-popup">` +
+                `<div class="prediction-station-name">${stationName}</div>` +
+                `<p class="prediction-none">No subway predictions</p>` +
+                `</div>`
+            );
+            return;
+        }
+
+        const grouped = {};
+        predictions.forEach((pred) => {
+            if (!grouped[pred.route]) grouped[pred.route] = [];
+            if (grouped[pred.route].length < 4) {
+                grouped[pred.route].push(pred);
+            }
+        });
+
+        let html =
+            `<div class="prediction-popup">` +
+            `<div class="prediction-station-name">${stationName}</div>`;
+
+        Object.entries(grouped).forEach(([route, preds]) => {
+            html +=
+                `<div class="prediction-route-group">` +
+                `<div class="prediction-route-name">${route}</div>` +
+                `<table class="prediction-table">` +
+                `<thead><tr><th>Destination</th><th>Arrives</th></tr></thead>` +
+                `<tbody>`;
+
+            preds.forEach((pred) => {
+                const arrival = formatArrivalTime(pred.arrival_time);
+                html +=
+                    `<tr>` +
+                    `<td>${pred.destination}</td>` +
+                    `<td class="prediction-time">${arrival}</td>` +
+                    `</tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+        });
+
+        html += `</div>`;
+        marker.setPopupContent(html);
+    } catch (error) {
+        console.error("Failed to fetch predictions:", error);
+        marker.setPopupContent(
+            `<div class="prediction-popup">` +
+            `<div class="prediction-station-name">${stationName}</div>` +
+            `<p class="prediction-error">Unable to load predictions.</p>` +
+            `</div>`
+        );
+    }
+}
 
 /**
  * Initialise the Leaflet map on the Trains & Alerts page.
@@ -62,6 +194,15 @@ async function initTrainsMap() {
     }
 
     MBTA_APP.trainsMap = map;
+
+    map.on("popupopen", (e) => {
+        const popupEl = e.popup.getElement();
+        if (!popupEl) return;
+        popupEl.addEventListener("mouseenter", clearPopupCloseTimer);
+        popupEl.addEventListener("mouseleave", () => {
+            schedulePopupClose(map, 200);
+        });
+    });
 }
 
 /**
@@ -150,18 +291,30 @@ async function renderLineOnMap(lineName) {
         lineData.stations.forEach((station) => {
             if (!station.latitude || !station.longitude) return;
 
-            L.circleMarker([station.latitude, station.longitude], {
-                radius: 6,
-                color: lineColor,
-                weight: 2.5,
-                fillColor: "#ffffff",
-                fillOpacity: 1,
-                opacity: 1,
-            })
+            const stationMarker = L.circleMarker(
+                [station.latitude, station.longitude],
+                {
+                    radius: 6,
+                    color: lineColor,
+                    weight: 2.5,
+                    fillColor: "#ffffff",
+                    fillOpacity: 1,
+                    opacity: 1,
+                }
+            )
                 .bindTooltip(station.name, {
                     direction: "top",
                     offset: [0, -8],
                 })
+                .on("click", () => {
+                    fetchAndShowPredictions(
+                        stationMarker,
+                        station.station_id,
+                        station.name
+                    );
+                })
+                .on("mouseout", () => schedulePopupClose(map))
+                .on("mouseover", clearPopupCloseTimer)
                 .addTo(MBTA_APP.lineLayerGroup);
         });
 

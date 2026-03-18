@@ -56,6 +56,10 @@ python manage.py runserver
 - `line_color` from API is hex without `#` — always prepend `#` before passing to Leaflet/CSS
 - Draw polylines before circle markers so stations render on top of lines
 - Station circle markers use `bindTooltip()` for hover labels (direction "top", offset [0, -8])
+- Station click popups: use `marker.unbindPopup()` + `marker.bindPopup(html, { autoPan: true })` + `marker.openPopup()` for dynamic async content; update with `marker.setPopupContent()` after fetch completes
+- Popup close-on-mouseout pattern: `schedulePopupClose(map, delay)` on marker mouseout, `clearPopupCloseTimer()` on marker/popup mouseover, popup mouseleave triggers close — use `map.on("popupopen")` to attach DOM-level events to popup element
+- `MBTA_APP.popupCloseTimer` holds the shared timeout ID for popup auto-close
+- Predictions are grouped by `route` key (e.g. "Red", "Green-B") with max 4 per route
 
 ## Gotchas
 

@@ -200,3 +200,83 @@ main {
 .alert-minor .alert-severity {
     background-color: #4caf50;
 }
+
+/* ---------------------------------------------------------------------------
+   Prediction popup (station click on Trains & Alerts page)
+   --------------------------------------------------------------------------- */
+
+.prediction-popup {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+}
+
+.prediction-station-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1c1c1c;
+    border-bottom: 2px solid #e03a3e;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+}
+
+.prediction-loading {
+    color: #888;
+    font-size: 0.85rem;
+    margin: 4px 0 0;
+}
+
+.prediction-none {
+    color: #888;
+    font-size: 0.85rem;
+    font-style: italic;
+    margin: 4px 0 0;
+}
+
+.prediction-error {
+    color: #d32f2f;
+    font-size: 0.85rem;
+    margin: 4px 0 0;
+}
+
+.prediction-route-group {
+    margin-top: 8px;
+}
+
+.prediction-route-group:first-of-type {
+    margin-top: 4px;
+}
+
+.prediction-route-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+.prediction-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.prediction-table thead th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 8px 2px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.prediction-table tbody td {
+    padding: 3px 8px 3px 0;
+    color: #333;
+}
+
+.prediction-time {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-weight: 500;
+}
