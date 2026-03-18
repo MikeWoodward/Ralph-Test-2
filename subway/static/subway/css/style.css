@@ -49,3 +49,16 @@ main {
     margin: 0 auto;
     padding: 16px;
 }
+
+/* ---------------------------------------------------------------------------
+   Map container — used on both Trains & Alerts and Map & Facilities pages
+   --------------------------------------------------------------------------- */
+
+.map-container {
+    width: 100%;
+    height: calc(100vh - 130px);
+    min-height: 400px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}

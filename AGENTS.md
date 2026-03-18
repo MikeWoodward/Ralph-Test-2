@@ -42,6 +42,15 @@ python manage.py runserver
 - Use `JsonResponse(data=..., safe=False)` when returning a list (non-dict) as JSON
 - API error handling pattern: wrap in try/except, use `traceback.extract_tb(sys.exc_info()[2])` to get line number, return `JsonResponse(data={"error": ..., "line": ...}, status=500)`
 
+## Frontend (JavaScript)
+
+- `app.js` initialises Leaflet maps conditionally based on which page is loaded (checks for element ID)
+- Global state namespace: `MBTA_APP` object holds shared references (e.g. `trainsMap`, future layer groups)
+- Map initialisation: Leaflet requires a container element with an explicit height set via CSS before `L.map()` is called
+- Auto-zoom pattern: fetch all lines → collect station coords → `map.fitBounds(L.latLngBounds(coords), { padding: [20, 20] })`
+- Always use `encodeURIComponent()` when interpolating line names into API URLs (they contain spaces)
+- Leaflet CDN (v1.9.4) CSS and JS are loaded in `base.html` — available on every page
+
 ## Gotchas
 
 - The MBTA class in `subway/MBTA_class.py` loads `.env` from one directory up (`Path(__file__).resolve().parent.parent`), which resolves to the Django project root. The `.env` file must be at the project root.
