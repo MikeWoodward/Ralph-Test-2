@@ -30,5 +30,7 @@ python manage.py runserver
 
 ## Gotchas
 
-- The MBTA class loads `.env` relative to its own file location — if copying the class, ensure `.env` is in the same directory or adjust the dotenv path
+- The MBTA class in `subway/MBTA_class.py` loads `.env` from one directory up (`Path(__file__).resolve().parent.parent`), which resolves to the Django project root. The `.env` file must be at the project root.
 - Django settings reference `BASE_DIR / 'subway' / 'templates'` for template discovery
+- Import the MBTA class as: `from subway.MBTA_class import MBTA`
+- MBTA().initialize() makes multiple API calls and takes ~4-5 seconds — use a singleton pattern to avoid repeated initialization
