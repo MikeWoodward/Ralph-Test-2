@@ -386,6 +386,35 @@ async function renderAlerts(lineName) {
 }
 
 /**
+ * Add a semi-transparent legend control to a Leaflet map showing
+ * a colored swatch and name for each subway line.
+ *
+ * @param {L.Map} map - The Leaflet map to add the legend to.
+ * @param {{ name: string, color: string }[]} items - Line name/color pairs.
+ */
+function addMapLegend(map, items) {
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = () => {
+        const div = L.DomUtil.create("div", "map-legend");
+        div.innerHTML =
+            '<div class="map-legend-title">Subway Lines</div>' +
+            items
+                .map(
+                    ({ name, color }) =>
+                        `<div class="map-legend-item">` +
+                        `<span class="map-legend-swatch" style="background:${color}"></span>` +
+                        `<span class="map-legend-label">${name}</span>` +
+                        `</div>`
+                )
+                .join("");
+        return div;
+    };
+
+    legend.addTo(map);
+}
+
+/**
  * Initialise the Leaflet map on the Map & Facilities page,
  * rendering every subway line simultaneously with correct colors
  * and station markers.  Fits the map bounds to the entire system.
@@ -467,6 +496,17 @@ async function initFacilitiesMap() {
 
         if (allCoords.length > 0) {
             map.fitBounds(L.latLngBounds(allCoords), { padding: [20, 20] });
+        }
+
+        const legendItems = lineNames
+            .map((name, i) => {
+                const data = lineDataList[i];
+                return data ? { name, color: `#${data.line_color}` } : null;
+            })
+            .filter(Boolean);
+
+        if (legendItems.length > 0) {
+            addMapLegend(map, legendItems);
         }
     } catch (error) {
         console.error("Failed to initialise facilities map:", error);

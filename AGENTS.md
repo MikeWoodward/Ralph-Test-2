@@ -62,6 +62,8 @@ python manage.py runserver
 - Predictions are grouped by `route` key (e.g. "Red", "Green-B") with max 4 per route
 - `initFacilitiesMap()` renders all lines simultaneously on the Map & Facilities page — each init function guards with an element-ID check so only the active page's map initialises
 - Map & Facilities stations have tooltips only (no click popups yet); Story 2.10 will add facility popups
+- `addMapLegend(map, items)` creates a Leaflet `L.control` at bottomright with colored swatches and line names — reusable for any map that needs a legend
+- Legend items are derived by zipping `lineNames` (from `/api/lines`) with `lineDataList` (from parallel fetches) by index — both arrays are aligned by `Promise.all`
 
 ## Gotchas
 
