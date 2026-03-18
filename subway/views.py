@@ -4,7 +4,7 @@ import traceback
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from subway.schemas import AlertSchema, LineSchema
+from subway.schemas import AlertSchema, LineSchema, PredictionSchema
 from subway.services import get_mbta
 
 
@@ -142,6 +142,46 @@ def api_alerts(
 
         return JsonResponse(
             data=alerts,
+            safe=False,
+        )
+    except Exception as exc:
+        tb = traceback.extract_tb(sys.exc_info()[2])
+        line_no = tb[-1].lineno if tb else "unknown"
+        return JsonResponse(
+            data={
+                "error": str(exc),
+                "line": line_no,
+            },
+            status=500,
+        )
+
+
+def api_predictions(
+    request: HttpRequest,
+    station_id: str,
+) -> JsonResponse:
+    """Return arrival predictions for a given station as a JSON array.
+
+    Args:
+        request: The HTTP request object.
+        station_id: MBTA stop ID (e.g. "place-knncl").
+
+    Returns:
+        JsonResponse with a list of prediction objects
+        (route, destination, arrival_time, departure_time, comments),
+        or an error object on failure.
+    """
+    try:
+        mbta = get_mbta()
+        raw_predictions = mbta.get_predictions(station_id=station_id)
+
+        predictions = [
+            PredictionSchema(**prediction).model_dump()
+            for prediction in raw_predictions
+        ]
+
+        return JsonResponse(
+            data=predictions,
             safe=False,
         )
     except Exception as exc:

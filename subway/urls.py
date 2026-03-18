@@ -35,4 +35,9 @@ urlpatterns = [
         views.api_alerts,
         name="api_alerts",
     ),
+    path(
+        "api/predictions/<str:station_id>",
+        views.api_predictions,
+        name="api_predictions",
+    ),
 ]
