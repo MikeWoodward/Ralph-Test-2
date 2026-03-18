@@ -4,7 +4,7 @@ import traceback
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 
-from subway.schemas import LineSchema
+from subway.schemas import AlertSchema, LineSchema
 from subway.services import get_mbta
 
 
@@ -101,6 +101,48 @@ def api_line(
         validated = LineSchema(**line_data)
         return JsonResponse(
             data=validated.model_dump(),
+        )
+    except Exception as exc:
+        tb = traceback.extract_tb(sys.exc_info()[2])
+        line_no = tb[-1].lineno if tb else "unknown"
+        return JsonResponse(
+            data={
+                "error": str(exc),
+                "line": line_no,
+            },
+            status=500,
+        )
+
+
+def api_alerts(
+    request: HttpRequest,
+    line_name: str,
+) -> JsonResponse:
+    """Return current alerts for a given subway line as a JSON array.
+
+    Args:
+        request: The HTTP request object.
+        line_name: Display name of the line (e.g. "Red Line").
+
+    Returns:
+        JsonResponse with a list of alert objects (headline, severity),
+        or an error object on failure.
+    """
+    try:
+        mbta = get_mbta()
+        raw_alerts = mbta.get_line_alerts(line_name=line_name)
+
+        alerts = [
+            AlertSchema(
+                headline=alert["attributes"]["header"],
+                severity=alert["attributes"]["severity"],
+            ).model_dump()
+            for alert in raw_alerts
+        ]
+
+        return JsonResponse(
+            data=alerts,
+            safe=False,
         )
     except Exception as exc:
         tb = traceback.extract_tb(sys.exc_info()[2])

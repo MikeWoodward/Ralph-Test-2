@@ -30,4 +30,9 @@ urlpatterns = [
         views.api_line,
         name="api_line",
     ),
+    path(
+        "api/alerts/<str:line_name>",
+        views.api_alerts,
+        name="api_alerts",
+    ),
 ]
