@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Page routes
     path(
         "",
         views.trains_alerts,
@@ -17,5 +18,11 @@ urlpatterns = [
         "about/",
         views.about,
         name="about",
+    ),
+    # API routes
+    path(
+        "api/lines",
+        views.api_lines,
+        name="api_lines",
     ),
 ]

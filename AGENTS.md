@@ -35,6 +35,13 @@ python manage.py runserver
 - Import pattern: `from subway.services import get_mbta` then `mbta = get_mbta()`
 - First call takes ~4-5 seconds (API initialization); subsequent calls return instantly
 
+## API Endpoints
+
+- API views live in `subway/views.py` alongside page views, separated by a comment header
+- API URLs are registered in `subway/urls.py` under the `api/` prefix (e.g. `api/lines`)
+- Use `JsonResponse(data=..., safe=False)` when returning a list (non-dict) as JSON
+- API error handling pattern: wrap in try/except, use `traceback.extract_tb(sys.exc_info()[2])` to get line number, return `JsonResponse(data={"error": ..., "line": ...}, status=500)`
+
 ## Gotchas
 
 - The MBTA class in `subway/MBTA_class.py` loads `.env` from one directory up (`Path(__file__).resolve().parent.parent`), which resolves to the Django project root. The `.env` file must be at the project root.
