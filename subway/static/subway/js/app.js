@@ -100,7 +100,80 @@ async function initLineSelector() {
     }
 }
 
+/**
+ * Fetch and render a subway line on the Trains & Alerts map.
+ *
+ * Draws each shape segment as a thick colored polyline and each
+ * station as a circle marker with the line color stroke and white
+ * fill, following the official MBTA subway-map visual style.
+ * Clears previously drawn layers before rendering.
+ *
+ * @param {string} lineName - Display name of the line (e.g. "Red Line").
+ */
+async function renderLineOnMap(lineName) {
+    const map = MBTA_APP.trainsMap;
+    if (!map) return;
+
+    if (MBTA_APP.lineLayerGroup) {
+        MBTA_APP.lineLayerGroup.clearLayers();
+        map.removeLayer(MBTA_APP.lineLayerGroup);
+    }
+
+    MBTA_APP.lineLayerGroup = L.layerGroup().addTo(map);
+
+    try {
+        const response = await fetch(
+            `/api/line/${encodeURIComponent(lineName)}`
+        );
+        if (!response.ok) {
+            throw new Error(`/api/line/${lineName} returned ${response.status}`);
+        }
+        const lineData = await response.json();
+        const lineColor = `#${lineData.line_color}`;
+
+        lineData.shapes.forEach((shapeCoords) => {
+            if (shapeCoords.length < 2) return;
+
+            const latLngs = shapeCoords.map(([lat, lng]) => [lat, lng]);
+            L.polyline(latLngs, {
+                color: lineColor,
+                weight: 5,
+                opacity: 0.9,
+                lineCap: "round",
+                lineJoin: "round",
+            }).addTo(MBTA_APP.lineLayerGroup);
+        });
+
+        lineData.stations.forEach((station) => {
+            if (!station.latitude || !station.longitude) return;
+
+            L.circleMarker([station.latitude, station.longitude], {
+                radius: 6,
+                color: lineColor,
+                weight: 2.5,
+                fillColor: "#ffffff",
+                fillOpacity: 1,
+                opacity: 1,
+            })
+                .bindTooltip(station.name, {
+                    direction: "top",
+                    offset: [0, -8],
+                })
+                .addTo(MBTA_APP.lineLayerGroup);
+        });
+    } catch (error) {
+        console.error("Failed to render line on map:", error);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTrainsMap();
     initLineSelector();
+
+    document.addEventListener("lineSelected", (e) => {
+        const { lineName } = e.detail;
+        if (lineName) {
+            renderLineOnMap(lineName);
+        }
+    });
 });

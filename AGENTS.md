@@ -52,6 +52,10 @@ python manage.py runserver
 - Leaflet CDN (v1.9.4) CSS and JS are loaded in `base.html` — available on every page
 - Inter-component communication: dropdown fires `document.dispatchEvent(new CustomEvent("lineSelected", { detail: { lineName } }))` — listen with `document.addEventListener("lineSelected", (e) => { ... e.detail.lineName ... })`
 - `MBTA_APP.lineLayerGroup` holds the current line's Leaflet layers for clearing on re-selection
+- `renderLineOnMap(lineName)` draws polylines + station markers for a single line; clears previous layers first
+- `line_color` from API is hex without `#` — always prepend `#` before passing to Leaflet/CSS
+- Draw polylines before circle markers so stations render on top of lines
+- Station circle markers use `bindTooltip()` for hover labels (direction "top", offset [0, -8])
 
 ## Gotchas
 
