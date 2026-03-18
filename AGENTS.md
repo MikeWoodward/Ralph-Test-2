@@ -68,6 +68,17 @@ python manage.py runserver
 - `addMapLegend(map, items)` creates a Leaflet `L.control` at bottomright with colored swatches and line names — reusable for any map that needs a legend
 - Legend items are derived by zipping `lineNames` (from `/api/lines`) with `lineDataList` (from parallel fetches) by index — both arrays are aligned by `Promise.all`
 
+## CSS / Styling
+
+- CSS custom properties are defined in `:root` in `style.css` — all colors, fonts, radii, and shadows reference these variables
+- MBTA color palette: `--mbta-red` (#e03a3e), `--dark` (#1c1c1c), `--text` (#333), `--muted` (#555), `--border` (#ddd), `--bg` (#f5f5f5), `--card-bg` (#fff)
+- Shared design tokens: `--radius` (8px), `--shadow-sm`, `--shadow-md`, `--font-stack`
+- When adding new UI components, use CSS variables rather than raw color/font values
+- Leaflet popups and tooltips have CSS overrides with `!important` (necessary because Leaflet injects inline styles) — keep these overrides minimal
+- Responsive breakpoints: tablet at 768px, mobile at 480px — both are in `style.css` at the bottom
+- Header is `position: sticky` with `z-index: 1000` — new components should not exceed this z-index unless they need to overlay the header
+- Map container uses `calc(100vh - 160px)` with `min-height` and `max-height` bounds — adjust the calc offset if header height changes
+
 ## Gotchas
 
 - The MBTA class in `subway/MBTA_class.py` loads `.env` from one directory up (`Path(__file__).resolve().parent.parent`), which resolves to the Django project root. The `.env` file must be at the project root.
