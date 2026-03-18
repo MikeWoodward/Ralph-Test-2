@@ -25,4 +25,9 @@ urlpatterns = [
         views.api_lines,
         name="api_lines",
     ),
+    path(
+        "api/line/<str:line_name>",
+        views.api_line,
+        name="api_line",
+    ),
 ]
