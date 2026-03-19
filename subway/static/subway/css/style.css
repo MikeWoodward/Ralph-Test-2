@@ -1,724 +1,213 @@
-/* MBTA Subway App Styles
- *
- * Color palette:
- *   --mbta-red:   #e03a3e  (primary accent / MBTA brand)
- *   --dark:       #1c1c1c  (header, headings)
- *   --text:       #333     (body text)
- *   --muted:      #555     (secondary text)
- *   --border:     #ddd     (card/container borders)
- *   --bg:         #f5f5f5  (page background)
- *   --card-bg:    #fff     (card surfaces)
- */
+/* ===================================================================
+   MBTA Subway — Global Stylesheet
+   =================================================================== */
 
-:root {
-    --mbta-red: #e03a3e;
-    --dark: #1c1c1c;
-    --text: #333;
-    --muted: #555;
-    --border: #ddd;
-    --bg: #f5f5f5;
-    --card-bg: #fff;
-    --radius: 8px;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
-    --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        Helvetica, Arial, sans-serif;
-}
+/* --- Reset & base ------------------------------------------------- */
 
 *,
 *::before,
 *::after {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
-html {
-    -webkit-text-size-adjust: 100%;
-    overflow-x: hidden;
+html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #1a1a2e;
+    background: #f5f6fa;
 }
 
 body {
-    font-family: var(--font-stack);
-    background-color: var(--bg);
-    color: var(--text);
-    line-height: 1.5;
-    min-height: 100vh;
-    overflow-x: hidden;
-}
-
-header {
-    background-color: var(--dark);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
-.tab-bar {
     display: flex;
-    max-width: 960px;
-    margin: 0 auto;
+    flex-direction: column;
 }
 
-.tab {
-    flex: 1;
-    text-align: center;
-    padding: 14px 0;
-    color: #ccc;
+a {
+    color: #165c96;
     text-decoration: none;
-    font-weight: 500;
-    font-size: 0.95rem;
-    border-bottom: 3px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease,
-        background-color 0.15s ease;
 }
 
-.tab:hover {
-    color: #fff;
-    background-color: rgba(255, 255, 255, 0.05);
+a:hover {
+    text-decoration: underline;
 }
 
-.tab:focus-visible {
-    outline: 2px solid var(--mbta-red);
-    outline-offset: -2px;
-}
+/* --- Header & navigation ------------------------------------------ */
 
-.tab.active {
-    color: #fff;
-    border-bottom-color: var(--mbta-red);
-}
-
-main {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 16px;
-}
-
-/* ---------------------------------------------------------------------------
-   Line-selector dropdown bar (Trains & Alerts page)
-   --------------------------------------------------------------------------- */
-
-.line-selector-bar {
+.app-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    padding: 10px 14px;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
+    gap: 2rem;
+    padding: 0.5rem 1.25rem;
+    background: #1a1a2e;
+    color: #ffffff;
+    flex-shrink: 0;
 }
 
-.line-selector-bar label {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text);
+.app-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     white-space: nowrap;
 }
 
-.line-selector-bar select {
+.nav-tabs {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.nav-tab {
+    padding: 0.45rem 1rem;
+    border-radius: 6px 6px 0 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #c0c4d6;
+    background: transparent;
+    transition: background 0.15s, color 0.15s;
+    text-decoration: none;
+}
+
+.nav-tab:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+    text-decoration: none;
+}
+
+.nav-tab--active {
+    color: #1a1a2e;
+    background: #f5f6fa;
+    font-weight: 600;
+}
+
+.nav-tab--active:hover {
+    color: #1a1a2e;
+    background: #f5f6fa;
+}
+
+/* --- Main content ------------------------------------------------- */
+
+.main-content {
     flex: 1;
-    max-width: 300px;
-    padding: 8px 12px;
-    font-size: 0.95rem;
-    font-family: inherit;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background-color: var(--card-bg);
-    color: var(--text);
-    cursor: pointer;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.line-selector-bar select:hover {
-    border-color: #888;
-}
-
-.line-selector-bar select:focus {
-    outline: none;
-    border-color: var(--mbta-red);
-    box-shadow: 0 0 0 2px rgba(224, 58, 62, 0.2);
-}
-
-/* ---------------------------------------------------------------------------
-   Map container — used on both Trains & Alerts and Map & Facilities pages
-   --------------------------------------------------------------------------- */
-
-.map-container {
-    width: 100%;
-    height: calc(100vh - 160px);
-    min-height: 400px;
-    max-height: 800px;
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
-}
-
-/* ---------------------------------------------------------------------------
-   Alerts container (Trains & Alerts page)
-   --------------------------------------------------------------------------- */
-
-.alerts-container {
-    margin-top: 16px;
-    padding: 14px 18px;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-}
-
-.alerts-header {
-    font-weight: 700;
-    font-size: 1rem;
-    margin-bottom: 10px;
-    color: var(--dark);
-    border-bottom: 2px solid var(--mbta-red);
-    padding-bottom: 6px;
-}
-
-.alerts-placeholder,
-.alerts-loading {
-    color: #888;
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.alerts-none {
-    color: #4caf50;
-    font-weight: 500;
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.alerts-error {
-    color: #d32f2f;
-    font-weight: 500;
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.alert-card {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    transition: box-shadow 0.15s ease;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.alert-card:last-child {
-    margin-bottom: 0;
+/* --- Trains & Alerts page ----------------------------------------- */
+
+.trains-alerts-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
 }
 
-.alert-card:hover {
-    box-shadow: var(--shadow-sm);
-}
-
-.alert-severity {
-    flex-shrink: 0;
-    text-transform: uppercase;
-    font-weight: 700;
-    font-size: 0.7rem;
-    letter-spacing: 0.5px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    color: #fff;
-}
-
-.alert-headline {
-    color: var(--text);
-}
-
-.alert-severe {
-    background-color: #fde8e8;
-    border-left: 4px solid #d32f2f;
-}
-
-.alert-severe .alert-severity {
-    background-color: #d32f2f;
-}
-
-.alert-moderate {
-    background-color: #fff8e1;
-    border-left: 4px solid #f9a825;
-}
-
-.alert-moderate .alert-severity {
-    background-color: #f9a825;
-}
-
-.alert-minor {
-    background-color: #e8f5e9;
-    border-left: 4px solid #4caf50;
-}
-
-.alert-minor .alert-severity {
-    background-color: #4caf50;
-}
-
-/* ---------------------------------------------------------------------------
-   Map legend (Map & Facilities page)
-   --------------------------------------------------------------------------- */
-
-.map-legend {
-    background: rgba(255, 255, 255, 0.94);
-    border-radius: 6px;
-    padding: 10px 14px;
-    box-shadow: var(--shadow-md);
-    font-family: var(--font-stack);
-    font-size: 0.85rem;
-    line-height: 1.5;
-    max-width: 180px;
-}
-
-.map-legend-title {
-    font-weight: 700;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-    margin-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 4px;
-}
-
-.map-legend-item {
+.controls-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 0;
+    gap: 0.75rem;
+    padding: 0.6rem 1.25rem;
+    background: #ffffff;
+    border-bottom: 1px solid #e0e2ec;
 }
 
-.map-legend-swatch {
-    display: inline-block;
-    width: 20px;
-    height: 6px;
-    border-radius: 3px;
-    flex-shrink: 0;
-}
-
-.map-legend-label {
-    color: var(--text);
-    font-weight: 500;
-}
-
-/* ---------------------------------------------------------------------------
-   Prediction popup (station click on Trains & Alerts page)
-   --------------------------------------------------------------------------- */
-
-.prediction-popup {
-    font-family: var(--font-stack);
-    line-height: 1.4;
-}
-
-.prediction-station-name {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--dark);
-    border-bottom: 2px solid var(--mbta-red);
-    padding-bottom: 4px;
-    margin-bottom: 6px;
-}
-
-.prediction-loading {
-    color: #888;
-    font-size: 0.85rem;
-    margin: 4px 0 0;
-}
-
-.prediction-none {
-    color: #888;
-    font-size: 0.85rem;
-    font-style: italic;
-    margin: 4px 0 0;
-}
-
-.prediction-error {
-    color: #d32f2f;
-    font-size: 0.85rem;
-    margin: 4px 0 0;
-}
-
-.prediction-route-group {
-    margin-top: 8px;
-}
-
-.prediction-route-group:first-of-type {
-    margin-top: 4px;
-}
-
-.prediction-route-name {
+.line-label {
+    font-size: 0.9rem;
     font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--muted);
-    margin-bottom: 3px;
 }
 
-.prediction-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
-}
-
-.prediction-table thead th {
-    text-align: left;
-    font-weight: 600;
-    font-size: 0.72rem;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    padding: 2px 8px 2px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.prediction-table tbody td {
-    padding: 3px 8px 3px 0;
-    color: var(--text);
-}
-
-.prediction-time {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    font-weight: 500;
-}
-
-/* ---------------------------------------------------------------------------
-   Facility popup (station hover/click on Map & Facilities page)
-   --------------------------------------------------------------------------- */
-
-.facility-popup {
-    font-family: var(--font-stack);
-    line-height: 1.4;
-}
-
-.facility-station-name {
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--dark);
-    border-bottom: 2px solid var(--mbta-red);
-    padding-bottom: 4px;
-    margin-bottom: 6px;
-}
-
-.facility-loading {
-    color: #888;
-    font-size: 0.85rem;
-    margin: 4px 0 0;
-}
-
-.facility-error {
-    color: #d32f2f;
-    font-size: 0.85rem;
-    margin: 4px 0 0;
-}
-
-.facility-lines {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-bottom: 8px;
-}
-
-.facility-line-badge {
-    display: inline-block;
-    padding: 2px 8px;
+.line-select {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.9rem;
+    border: 1px solid #c0c4d6;
     border-radius: 4px;
-    color: #fff;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
+    background: #ffffff;
+    min-width: 200px;
 }
 
-.facility-list-header {
-    font-weight: 600;
-    font-size: 0.8rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 4px;
-    border-top: 1px solid #eee;
-    padding-top: 6px;
+.alerts-area {
+    padding: 0.5rem 1.25rem;
+    background: #fff8e1;
+    border-bottom: 1px solid #ffe082;
+    font-size: 0.88rem;
+    max-height: 120px;
+    overflow-y: auto;
 }
 
-.facility-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 0.82rem;
-    line-height: 1.5;
-    color: var(--text);
+.alerts-placeholder {
+    color: #757575;
+    font-style: italic;
 }
 
-.facility-list li {
-    padding: 3px 0;
-    border-bottom: 1px solid var(--bg);
+.alert-item {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #ffe082;
 }
 
-.facility-list li:last-child {
+.alert-item:last-child {
     border-bottom: none;
 }
 
-.facility-none {
-    color: #888;
-    font-size: 0.85rem;
-    font-style: italic;
-    margin: 4px 0 0;
+/* --- Map containers ----------------------------------------------- */
+
+.map-container {
+    flex: 1;
+    min-height: 300px;
 }
 
-/* ---------------------------------------------------------------------------
-   About page
-   --------------------------------------------------------------------------- */
+.map-container--full {
+    min-height: 0;
+}
+
+.map-facilities-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* --- About page --------------------------------------------------- */
 
 .about-page {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 28px 32px;
-    margin-top: 4px;
-    box-shadow: var(--shadow-sm);
+    max-width: 700px;
+    margin: 2rem auto;
+    padding: 0 1.25rem;
 }
 
-.about-title {
+.about-page h2 {
     font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--dark);
-    margin-bottom: 10px;
+    margin-bottom: 0.75rem;
 }
 
-.about-intro {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--muted);
-    margin-bottom: 24px;
+.about-page h3 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
 }
 
-.about-section {
-    margin-bottom: 24px;
+.about-page p {
+    margin-bottom: 0.75rem;
 }
 
-.about-section:last-child {
-    margin-bottom: 0;
+.services-list {
+    list-style: disc;
+    padding-left: 1.5rem;
 }
 
-.about-section-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--dark);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid var(--mbta-red);
-    padding-bottom: 6px;
-    margin-bottom: 14px;
+.services-list li {
+    margin-bottom: 0.5rem;
 }
 
-.about-card {
-    background-color: #f9f9f9;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
-    transition: box-shadow 0.15s ease;
-}
-
-.about-card:last-child {
-    margin-bottom: 0;
-}
-
-.about-card:hover {
-    box-shadow: var(--shadow-sm);
-}
-
-.about-card-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 4px;
-}
-
-.about-card-desc {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: var(--muted);
-    margin-bottom: 8px;
-}
-
-.about-link {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #1a73e8;
-    text-decoration: none;
-    transition: color 0.15s ease;
-}
-
-.about-link:hover {
-    text-decoration: underline;
-    color: #1558b0;
-}
-
-.about-link:focus-visible {
-    outline: 2px solid var(--mbta-red);
-    outline-offset: 2px;
-    border-radius: 2px;
-}
-
-.about-link-sep {
-    color: #bbb;
-    margin: 0 4px;
-    font-size: 0.85rem;
-}
-
-.about-author {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text);
-}
-
-/* ---------------------------------------------------------------------------
-   Leaflet popup overrides for consistent styling
-   --------------------------------------------------------------------------- */
-
-.leaflet-popup-content-wrapper {
-    border-radius: 6px !important;
-    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2) !important;
-    font-family: var(--font-stack) !important;
-}
+/* --- Leaflet popup overrides -------------------------------------- */
 
 .leaflet-popup-content {
-    margin: 10px 14px !important;
-    line-height: 1.4 !important;
-}
-
-.leaflet-popup-tip {
-    box-shadow: none !important;
-}
-
-/* ---------------------------------------------------------------------------
-   Leaflet tooltip overrides
-   --------------------------------------------------------------------------- */
-
-.leaflet-tooltip {
-    font-family: var(--font-stack) !important;
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    padding: 4px 8px !important;
-    border-radius: 4px !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
-}
-
-/* ---------------------------------------------------------------------------
-   Responsive — Tablet (≤ 768px)
-   --------------------------------------------------------------------------- */
-
-@media (max-width: 768px) {
-    .tab-bar {
-        max-width: 100%;
-    }
-
-    .tab {
-        padding: 12px 4px;
-        font-size: 0.85rem;
-    }
-
-    main {
-        padding: 12px;
-    }
-
-    .map-container {
-        height: calc(100vh - 180px);
-        min-height: 320px;
-        border-radius: 6px;
-    }
-
-    .line-selector-bar {
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 8px 12px;
-    }
-
-    .line-selector-bar select {
-        max-width: 100%;
-    }
-
-    .alerts-container {
-        padding: 12px 14px;
-    }
-
-    .about-page {
-        padding: 20px 18px;
-    }
-
-    .about-title {
-        font-size: 1.3rem;
-    }
-}
-
-/* ---------------------------------------------------------------------------
-   Responsive — Mobile (≤ 480px)
-   --------------------------------------------------------------------------- */
-
-@media (max-width: 480px) {
-    .tab {
-        padding: 10px 2px;
-        font-size: 0.8rem;
-    }
-
-    main {
-        padding: 8px;
-    }
-
-    .map-container {
-        height: calc(100vh - 200px);
-        min-height: 260px;
-        max-height: none;
-        border-radius: 4px;
-    }
-
-    .line-selector-bar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 6px;
-    }
-
-    .line-selector-bar select {
-        max-width: 100%;
-    }
-
-    .alert-card {
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px 10px;
-    }
-
-    .alert-severity {
-        align-self: flex-start;
-    }
-
-    .about-page {
-        padding: 16px 14px;
-    }
-
-    .about-title {
-        font-size: 1.15rem;
-    }
-
-    .about-section-title {
-        font-size: 0.95rem;
-    }
-
-    .about-card {
-        padding: 10px 14px;
-    }
-
-    .map-legend {
-        max-width: 150px;
-        padding: 8px 10px;
-        font-size: 0.78rem;
-    }
+    max-height: 250px;
+    max-width: 300px;
+    overflow-y: auto;
+    font-size: 0.88rem;
+    line-height: 1.45;
 }

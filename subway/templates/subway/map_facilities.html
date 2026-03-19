@@ -1,9 +1,14 @@
 {% extends "subway/base.html" %}
 
-{% block title %}Map & Facilities - MBTA Subway{% endblock %}
+{% block title %}Map &amp; Facilities — MBTA Subway{% endblock %}
 
 {% block content %}
-<div id="map-facilities-page">
-    <div id="facilities-map" class="map-container"></div>
+<div class="map-facilities-page">
+    <div id="map" class="map-container map-container--full"></div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% load static %}
+<script src="{% static 'subway/js/map_facilities.js' %}"></script>
 {% endblock %}

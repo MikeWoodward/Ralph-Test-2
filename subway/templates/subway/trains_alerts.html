@@ -1,18 +1,25 @@
 {% extends "subway/base.html" %}
 
-{% block title %}Trains & Alerts - MBTA Subway{% endblock %}
+{% block title %}Trains &amp; Alerts — MBTA Subway{% endblock %}
 
 {% block content %}
-<div id="trains-alerts-page">
-    <div class="line-selector-bar">
-        <label for="line-select">Subway Line:</label>
-        <select id="line-select">
-            <option value="" disabled selected>Select a line</option>
+<div class="trains-alerts-page">
+    <div class="controls-bar">
+        <label for="line-select" class="line-label">Select a line:</label>
+        <select id="line-select" class="line-select">
+            <option value="">— Choose a line —</option>
         </select>
     </div>
-    <div id="trains-map" class="map-container"></div>
-    <div id="alerts-container" class="alerts-container">
-        <p class="alerts-placeholder">Select a line to view alerts.</p>
+
+    <div id="alerts-area" class="alerts-area">
+        <p class="alerts-placeholder">Select a line to see alerts.</p>
     </div>
+
+    <div id="map" class="map-container"></div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% load static %}
+<script src="{% static 'subway/js/app.js' %}"></script>
 {% endblock %}

@@ -11,6 +11,7 @@ import sys
 import traceback
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import render
 
 from subway import services
 
@@ -18,16 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Page views — placeholders until templates exist (stories 4.x / 5.x)
+# Page views
 # ---------------------------------------------------------------------------
 
 def trains_alerts_page(
     request: HttpRequest,
 ) -> HttpResponse:
     """Trains & Alerts page."""
-    return HttpResponse(
-        "<h1>Trains &amp; Alerts</h1><p>Coming soon.</p>",
-        content_type="text/html",
+    return render(
+        request,
+        "subway/trains_alerts.html",
+        {"active_page": "trains-alerts"},
     )
 
 
@@ -35,9 +37,10 @@ def map_facilities_page(
     request: HttpRequest,
 ) -> HttpResponse:
     """Map & Facilities page."""
-    return HttpResponse(
-        "<h1>Map &amp; Facilities</h1><p>Coming soon.</p>",
-        content_type="text/html",
+    return render(
+        request,
+        "subway/map_facilities.html",
+        {"active_page": "map-facilities"},
     )
 
 
@@ -45,9 +48,10 @@ def about_page(
     request: HttpRequest,
 ) -> HttpResponse:
     """About page."""
-    return HttpResponse(
-        "<h1>About</h1><p>Coming soon.</p>",
-        content_type="text/html",
+    return render(
+        request,
+        "subway/about.html",
+        {"active_page": "about"},
     )
 
 
