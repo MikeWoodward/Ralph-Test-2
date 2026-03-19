@@ -5,13 +5,16 @@ Requires a valid MBTA_V3_API_KEY in the project root .env file.
 """
 
 import json
+import re
 
 from django.test import SimpleTestCase
+from pydantic import ValidationError
 
 from subway.schemas import (
     AlertSchema,
     LineSchema,
     PredictionSchema,
+    StationBriefSchema,
     StationDetailSchema,
 )
 from subway.services import (
@@ -532,3 +535,294 @@ class StationAPIViewsTest(SimpleTestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertIn("error", data)
+
+
+class TypeCorrectnessTest(SimpleTestCase):
+    """Verify field-level type correctness of service return values and API responses.
+
+    Goes beyond instance checks to validate that every field in returned
+    Pydantic models and JSON payloads has the expected Python/JSON type.
+    """
+
+    HEX_COLOR_RE = re.compile(r"^[0-9A-Fa-f]{6}$")
+
+    # -- Service layer field types --
+
+    def test_line_schema_field_types(self) -> None:
+        """LineSchema fields have correct Python types after validation."""
+        line = get_line(line_name="Red Line")
+        self.assertIsInstance(line.line_color, str)
+        self.assertRegex(
+            line.line_color,
+            self.HEX_COLOR_RE,
+            "line_color must be a 6-digit hex string",
+        )
+        self.assertIsInstance(line.shapes, list)
+        for segment in line.shapes:
+            self.assertIsInstance(segment, list)
+            for point in segment:
+                self.assertIsInstance(point, tuple)
+                self.assertEqual(len(point), 2)
+                self.assertIsInstance(point[0], float)
+                self.assertIsInstance(point[1], float)
+
+        self.assertIsInstance(line.stations, list)
+        for station in line.stations:
+            self.assertIsInstance(station, StationBriefSchema)
+
+    def test_station_brief_schema_field_types(self) -> None:
+        """StationBriefSchema fields within a line have correct types."""
+        line = get_line(line_name="Red Line")
+        station = line.stations[0]
+        self.assertIsInstance(station.station_id, str)
+        self.assertGreater(len(station.station_id), 0)
+        self.assertIsInstance(station.name, str)
+        self.assertGreater(len(station.name), 0)
+        self.assertIsInstance(station.latitude, float)
+        self.assertIsInstance(station.longitude, float)
+        self.assertIn(
+            type(station.address), (str, type(None)),
+        )
+
+    def test_station_detail_schema_field_types(self) -> None:
+        """StationDetailSchema fields have correct Python types."""
+        station = get_station(station_id="place-knncl")
+        self.assertIsInstance(station.id, str)
+        self.assertIsInstance(station.name, str)
+        self.assertIsInstance(station.latitude, float)
+        self.assertIsInstance(station.longitude, float)
+        self.assertIn(
+            type(station.address), (str, type(None)),
+        )
+        self.assertIsInstance(station.facilities, list)
+        for facility in station.facilities:
+            self.assertIsInstance(facility, str)
+        self.assertIsInstance(station.lines_served, list)
+        for line_name in station.lines_served:
+            self.assertIsInstance(line_name, str)
+
+    def test_alert_schema_field_types(self) -> None:
+        """AlertSchema fields have correct Python types for every alert."""
+        for name in get_line_names():
+            alerts = get_line_alerts(line_name=name)
+            for alert in alerts:
+                self.assertIsInstance(
+                    alert.headline, str,
+                    f"Alert headline on '{name}' is not str",
+                )
+                self.assertIsInstance(
+                    alert.severity, int,
+                    f"Alert severity on '{name}' is not int",
+                )
+
+    def test_prediction_schema_field_types(self) -> None:
+        """PredictionSchema fields have correct Python types."""
+        preds = get_predictions(station_id="place-knncl")
+        for pred in preds:
+            self.assertIsInstance(pred.route, str)
+            self.assertIsInstance(pred.destination, str)
+            self.assertIn(
+                type(pred.arrival_time), (str, type(None)),
+            )
+            self.assertIn(
+                type(pred.departure_time), (str, type(None)),
+            )
+            self.assertIn(
+                type(pred.comments), (str, type(None)),
+            )
+
+    # -- API response JSON field types --
+
+    def test_api_lines_json_types(self) -> None:
+        """GET /api/lines/ returns JSON with list of strings."""
+        data = json.loads(
+            self.client.get("/api/lines/").content,
+        )
+        self.assertIsInstance(data, dict)
+        self.assertIsInstance(data["lines"], list)
+        for name in data["lines"]:
+            self.assertIsInstance(name, str)
+            self.assertGreater(len(name), 0)
+
+    def test_api_line_detail_json_types(self) -> None:
+        """GET /api/line/<name>/ returns JSON with correct field types."""
+        data = json.loads(
+            self.client.get("/api/line/Red%20Line/").content,
+        )
+        self.assertIsInstance(data["line_name"], str)
+        self.assertIsInstance(data["line_color"], str)
+        self.assertRegex(data["line_color"], self.HEX_COLOR_RE)
+        self.assertIsInstance(data["shapes"], list)
+        self.assertIsInstance(data["stations"], list)
+        station = data["stations"][0]
+        self.assertIsInstance(station["station_id"], str)
+        self.assertIsInstance(station["name"], str)
+        self.assertIsInstance(station["latitude"], float)
+        self.assertIsInstance(station["longitude"], float)
+
+    def test_api_line_alerts_json_types(self) -> None:
+        """GET /api/line/<name>/alerts/ returns JSON with correct field types."""
+        data = json.loads(
+            self.client.get(
+                "/api/line/Red%20Line/alerts/",
+            ).content,
+        )
+        self.assertIsInstance(data["line_name"], str)
+        self.assertIsInstance(data["alerts"], list)
+        for alert in data["alerts"]:
+            self.assertIsInstance(alert["headline"], str)
+            self.assertIsInstance(alert["severity"], int)
+
+    def test_api_station_detail_json_types(self) -> None:
+        """GET /api/station/<id>/ returns JSON with correct field types."""
+        data = json.loads(
+            self.client.get("/api/station/place-knncl/").content,
+        )
+        self.assertIsInstance(data["id"], str)
+        self.assertIsInstance(data["name"], str)
+        self.assertIsInstance(data["latitude"], float)
+        self.assertIsInstance(data["longitude"], float)
+        self.assertIsInstance(data["facilities"], list)
+        for f in data["facilities"]:
+            self.assertIsInstance(f, str)
+        self.assertIsInstance(data["lines_served"], list)
+        for ls in data["lines_served"]:
+            self.assertIsInstance(ls, str)
+
+    def test_api_station_predictions_json_types(self) -> None:
+        """GET /api/station/<id>/predictions/ returns JSON with correct field types."""
+        data = json.loads(
+            self.client.get(
+                "/api/station/place-knncl/predictions/",
+            ).content,
+        )
+        self.assertIsInstance(data["station_id"], str)
+        self.assertIsInstance(data["predictions"], list)
+        for pred in data["predictions"]:
+            self.assertIsInstance(pred["route"], str)
+            self.assertIsInstance(pred["destination"], str)
+            self.assertIn(
+                type(pred.get("arrival_time")),
+                (str, type(None)),
+            )
+            self.assertIn(
+                type(pred.get("departure_time")),
+                (str, type(None)),
+            )
+
+    def test_api_404_error_json_types(self) -> None:
+        """404 responses return JSON with a string 'error' field."""
+        error_urls = [
+            "/api/line/Nonexistent%20Line/",
+            "/api/line/Nonexistent%20Line/alerts/",
+            "/api/station/place-xxxxx/",
+            "/api/station/place-xxxxx/predictions/",
+        ]
+        for url in error_urls:
+            response = self.client.get(url)
+            self.assertEqual(
+                response.status_code, 404,
+                f"Expected 404 for {url}",
+            )
+            data = json.loads(response.content)
+            self.assertIsInstance(
+                data["error"], str,
+                f"Error field is not a string for {url}",
+            )
+
+
+class SchemaValidationTest(SimpleTestCase):
+    """Verify Pydantic schemas reject data with wrong types.
+
+    Ensures the data contracts are enforced so type mismatches
+    are caught at the validation boundary.
+    """
+
+    def test_line_schema_rejects_non_string_color(self) -> None:
+        """LineSchema rejects non-string line_color."""
+        with self.assertRaises(ValidationError):
+            LineSchema(
+                line_color=123456,
+                shapes=[],
+                stations=[],
+            )
+
+    def test_line_schema_rejects_non_list_shapes(self) -> None:
+        """LineSchema rejects shapes that aren't a list."""
+        with self.assertRaises(ValidationError):
+            LineSchema(
+                line_color="DA291C",
+                shapes="not-a-list",
+                stations=[],
+            )
+
+    def test_station_brief_rejects_non_float_latitude(self) -> None:
+        """StationBriefSchema rejects non-numeric latitude."""
+        with self.assertRaises(ValidationError):
+            StationBriefSchema(
+                station_id="place-test",
+                name="Test",
+                latitude="not-a-float",
+                longitude=-71.0,
+            )
+
+    def test_station_detail_rejects_non_list_facilities(self) -> None:
+        """StationDetailSchema rejects facilities that aren't a list."""
+        with self.assertRaises(ValidationError):
+            StationDetailSchema(
+                id="place-test",
+                name="Test",
+                latitude=42.36,
+                longitude=-71.06,
+                facilities="not-a-list",
+            )
+
+    def test_alert_schema_rejects_non_int_severity(self) -> None:
+        """AlertSchema rejects non-integer severity."""
+        with self.assertRaises(ValidationError):
+            AlertSchema(
+                headline="Test alert",
+                severity="high",
+            )
+
+    def test_prediction_schema_rejects_missing_required_fields(
+        self,
+    ) -> None:
+        """PredictionSchema rejects data missing required route and destination."""
+        with self.assertRaises(ValidationError):
+            PredictionSchema(
+                route="Red",
+            )
+        with self.assertRaises(ValidationError):
+            PredictionSchema(
+                destination="Alewife",
+            )
+
+    def test_prediction_schema_accepts_optional_none_fields(
+        self,
+    ) -> None:
+        """PredictionSchema accepts None for optional time/comments fields."""
+        pred = PredictionSchema(
+            route="Red",
+            destination="Alewife",
+            arrival_time=None,
+            departure_time=None,
+            comments=None,
+        )
+        self.assertIsNone(pred.arrival_time)
+        self.assertIsNone(pred.departure_time)
+        self.assertIsNone(pred.comments)
+
+    def test_station_detail_schema_accepts_optional_defaults(
+        self,
+    ) -> None:
+        """StationDetailSchema defaults optional fields correctly."""
+        station = StationDetailSchema(
+            id="place-test",
+            name="Test Station",
+            latitude=42.36,
+            longitude=-71.06,
+        )
+        self.assertIsNone(station.address)
+        self.assertEqual(station.facilities, [])
+        self.assertEqual(station.lines_served, [])

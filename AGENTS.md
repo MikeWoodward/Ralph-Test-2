@@ -76,8 +76,9 @@ python manage.py runserver
 - `.env` is in `.gitignore` — never commit it
 - `DATABASES = {}` means `migrate` is not needed and will fail
 - `DATABASES = {}` also means tests must use `SimpleTestCase`, not `TestCase` (TestCase tries to flush the DB)
-- MBTA_class.py was copied from `../MBTA-API/` with one change: `.env` path uses `parent.parent` instead of `parent`
+- MBTA_class.py was copied from `../MBTA-API/` with two changes: `.env` path uses `parent.parent` instead of `parent`, and `get_line_alerts()` sort key navigates into `attributes.severity` with `None` fallback to 0
 - First call to any service function triggers ~3s initialization; subsequent calls are instant
+- Raw MBTA API alert data nests severity under `attributes.severity`, not top-level `severity`; severity can be `None` — always use a fallback when sorting
 
 ## Dependencies
 - Python packages: Django, Pydantic, requests, python-dotenv

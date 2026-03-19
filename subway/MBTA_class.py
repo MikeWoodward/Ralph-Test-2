@@ -724,7 +724,9 @@ class MBTA:
                 all_alerts.extend(route_alerts)
 
             all_alerts.sort(
-                key=lambda x: x.get("severity"),
+                key=lambda x: x.get("attributes", {}).get(
+                    "severity",
+                ) or 0,
                 reverse=False,
             )
 
