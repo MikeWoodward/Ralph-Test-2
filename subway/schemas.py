@@ -1,52 +1,107 @@
-"""Pydantic models for MBTA subway API responses."""
+"""Pydantic schemas for MBTA subway API responses.
+
+These schemas define the data contracts for the JSON API endpoints.
+The service layer transforms raw MBTA API data into these models.
+"""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
-class StationSchema(BaseModel):
-    """Schema for station data returned by the MBTA class.
+class StationBriefSchema(BaseModel):
+    """Brief station info included in line data."""
 
-    When used inside a LineSchema, facilities will be None since
-    line-level station data doesn't include facility information.
-    When fetched individually via get_station(), facilities will
-    be populated.
-    """
-
-    station_id: str
-    name: str
-    latitude: float
-    longitude: float
-    address: str | None = None
-    facilities: list[str] | None = None
+    station_id: str = Field(
+        description="MBTA stop ID (e.g. 'place-knncl')",
+    )
+    name: str = Field(
+        description="Display name of the station",
+    )
+    latitude: float = Field(
+        description="Latitude coordinate",
+    )
+    longitude: float = Field(
+        description="Longitude coordinate",
+    )
+    address: str | None = Field(
+        default=None,
+        description="Street address, if available",
+    )
 
 
 class LineSchema(BaseModel):
-    """Schema for subway line data.
+    """Schema for a subway line returned by GET /api/line/<name>."""
 
-    Shapes are lists of coordinate pairs (latitude, longitude)
-    representing polyline segments for the line's route.
-    """
+    line_color: str = Field(
+        description="Hex color code without '#' (e.g. 'DA291C')",
+    )
+    shapes: list[list[tuple[float, float]]] = Field(
+        description="Polyline coordinates per shape segment",
+    )
+    stations: list[StationBriefSchema] = Field(
+        description="Stations on this line",
+    )
 
-    name: str | None = None
-    line_color: str
-    shapes: list[list[tuple[float, float]]]
-    stations: list[StationSchema]
+
+class StationDetailSchema(BaseModel):
+    """Full station info returned by GET /api/station/<station_id>."""
+
+    id: str = Field(
+        description="MBTA stop ID (e.g. 'place-knncl')",
+    )
+    name: str = Field(
+        description="Display name of the station",
+    )
+    latitude: float = Field(
+        description="Latitude coordinate",
+    )
+    longitude: float = Field(
+        description="Longitude coordinate",
+    )
+    address: str | None = Field(
+        default=None,
+        description="Street address, if available",
+    )
+    facilities: list[str] = Field(
+        default_factory=list,
+        description="Facility descriptions",
+    )
+    lines_served: list[str] = Field(
+        default_factory=list,
+        description="Names of subway lines serving this station",
+    )
 
 
 class AlertSchema(BaseModel):
-    """Schema for MBTA service alert data."""
+    """Schema for a single alert returned by GET /api/line/<name>/alerts."""
 
-    headline: str
-    severity: int
+    headline: str = Field(
+        description="Alert header text",
+    )
+    severity: int = Field(
+        description="Severity level (lower = more severe)",
+    )
 
 
 class PredictionSchema(BaseModel):
-    """Schema for train arrival/departure prediction data."""
+    """Schema for a train prediction returned by GET /api/station/<id>/predictions."""
 
-    route: str
-    destination: str
-    arrival_time: str | None = None
-    departure_time: str | None = None
-    comments: str | None = None
+    route: str = Field(
+        description="Route ID (e.g. 'Red', 'Green-B')",
+    )
+    destination: str = Field(
+        description="Trip headsign (e.g. 'Alewife')",
+    )
+    arrival_time: str | None = Field(
+        default=None,
+        description="ISO 8601 arrival time, or None",
+    )
+    departure_time: str | None = Field(
+        default=None,
+        description="ISO 8601 departure time, or None",
+    )
+    comments: str | None = Field(
+        default=None,
+        description="Status text (e.g. 'Boarding'), or None",
+    )

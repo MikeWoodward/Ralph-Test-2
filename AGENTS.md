@@ -26,6 +26,10 @@ python manage.py runserver
 - MBTA API client: `subway/MBTA_class.py` — import with `from subway.MBTA_class import MBTA`
 - MBTA class loads `.env` from project root (parent.parent of `__file__`); do not move `.env` into `subway/`
 - `MBTA.initialize()` is expensive (~3s, many API calls); call once at startup, cache the instance
+- Pydantic schemas in `subway/schemas.py` — all API responses must be validated through these models
+- `get_line_alerts()` returns raw MBTA API format; extract `attributes.header` → `headline`, `attributes.severity` → `severity` before validating with `AlertSchema`
+- `get_predictions()` returns flat dicts that match `PredictionSchema` directly — no transformation needed
+- `StationDetailSchema.lines_served` must be computed by the service layer (not returned by MBTA class)
 
 ## Gotchas
 - `.env` file must be present in project root with `MBTA_V3_API_KEY`
