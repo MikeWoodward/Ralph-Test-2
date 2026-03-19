@@ -47,7 +47,10 @@ python manage.py runserver
 - Base template uses `{% if active_page == 'X' %}nav-tab--active{% endif %}` for highlighting
 - Leaflet 1.9.4 CDN: CSS in `<head>`, JS before `</body>` — child templates add page-specific JS in `{% block extra_scripts %}`
 - Map container divs use `id="map"` and class `map-container`; Leaflet JS initializes against `#map`
-- Placeholder JS files exist at `subway/static/subway/js/app.js` (trains-alerts) and `map_facilities.js` (map-facilities)
+- Shared Leaflet utilities: `subway/static/subway/js/map_utils.js` — drawing functions used by both pages; must load before page-specific scripts
+- Page-specific JS: `subway/static/subway/js/app.js` (trains-alerts) and `map_facilities.js` (map-facilities)
+- Drawing functions return `L.layerGroup` instances — call `.remove()` to clear layers from the map
+- Station markers store `stationId` and `stationName` in Leaflet marker options for click handler access
 
 ## CSS Design System
 - Single stylesheet: `subway/static/subway/css/style.css` — uses CSS custom properties (`:root` variables)
