@@ -260,6 +260,65 @@ class MapFacilitiesPageTest(SimpleTestCase):
         self.assertIn("Subway Lines", content)
 
 
+class AboutPageTest(SimpleTestCase):
+    """Verify the About page renders with all required elements (story 5.3)."""
+
+    def test_page_returns_200(self) -> None:
+        """GET /about/ returns 200."""
+        response = self.client.get("/about/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self) -> None:
+        """Page renders via about.html extending base.html."""
+        response = self.client.get("/about/")
+        self.assertTemplateUsed(response, "subway/about.html")
+        self.assertTemplateUsed(response, "subway/base.html")
+
+    def test_page_lists_mbta_api(self) -> None:
+        """Page mentions MBTA V3 API with a link."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("MBTA V3 API", content)
+        self.assertIn(
+            "https://www.mbta.com/developers/v3-api", content,
+        )
+
+    def test_page_lists_leaflet(self) -> None:
+        """Page mentions Leaflet.js with a link."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("Leaflet", content)
+        self.assertIn("https://leafletjs.com/", content)
+
+    def test_page_lists_openstreetmap(self) -> None:
+        """Page mentions OpenStreetMap with a link."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("OpenStreetMap", content)
+        self.assertIn(
+            "https://www.openstreetmap.org/copyright", content,
+        )
+
+    def test_page_shows_author(self) -> None:
+        """Page displays the author name."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("Mike Woodward", content)
+
+    def test_active_page_context(self) -> None:
+        """Active nav tab is set to about."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("nav-tab--active", content)
+
+    def test_all_service_links_open_in_new_tab(self) -> None:
+        """External service links have target=_blank for safety."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn('target="_blank"', content)
+        self.assertIn('rel="noopener"', content)
+
+
 class StationAPIViewsTest(SimpleTestCase):
     """Integration tests for station-related JSON API endpoints (story 3.3)."""
 
