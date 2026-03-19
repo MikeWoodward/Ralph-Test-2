@@ -405,11 +405,12 @@ a:focus-visible {
 .leaflet-popup-content-wrapper {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
 .leaflet-popup-content {
-    max-height: 280px;
-    max-width: 320px;
+    max-height: min(280px, 50vh);
+    max-width: min(320px, 80vw);
     overflow-y: auto;
     font-family: var(--font-family);
     font-size: var(--font-size-sm);
@@ -672,8 +673,8 @@ a:focus-visible {
     }
 
     .leaflet-popup-content {
-        max-width: 260px;
-        max-height: 220px;
+        max-width: min(260px, 85vw);
+        max-height: min(220px, 45vh);
     }
 }
 

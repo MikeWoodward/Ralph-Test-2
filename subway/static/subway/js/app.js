@@ -21,6 +21,10 @@ const FIT_BOUNDS_PADDING = [30, 30];
 const MAX_PREDICTIONS_PER_ROUTE = 4;
 const POPUP_CLOSE_DELAY_MS = 400;
 
+const POPUP_MAX_WIDTH = 320;
+const POPUP_MAX_HEIGHT = 280;
+const AUTOPAN_PADDING = [50, 50];
+
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
@@ -252,8 +256,11 @@ function attachPredictionHandlers(stationsLayer) {
 
             marker
                 .bindPopup(loadingHtml, {
+                    maxWidth: POPUP_MAX_WIDTH,
+                    maxHeight: POPUP_MAX_HEIGHT,
                     autoPan: true,
-                    maxWidth: 320,
+                    autoPanPadding: AUTOPAN_PADDING,
+                    keepInView: true,
                 })
                 .openPopup();
 
