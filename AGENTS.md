@@ -41,6 +41,25 @@ python manage.py runserver
 - Service functions validate return data through Pydantic schemas; views should use `.model_dump()` for JSON serialization
 - `services.get_station()` computes `lines_served` by scanning cached `_mbta_client.lines`
 
+## Template Patterns
+- Base template: `subway/templates/subway/base.html` — all pages extend this
+- Active nav highlighting: views pass `{"active_page": "trains-alerts"}` (or `map-facilities`, `about`) in context
+- Base template uses `{% if active_page == 'X' %}nav-tab--active{% endif %}` for highlighting
+- Leaflet 1.9.4 CDN: CSS in `<head>`, JS before `</body>` — child templates add page-specific JS in `{% block extra_scripts %}`
+- Map container divs use `id="map"` and class `map-container`; Leaflet JS initializes against `#map`
+- Placeholder JS files exist at `subway/static/subway/js/app.js` (trains-alerts) and `map_facilities.js` (map-facilities)
+
+## CSS Design System
+- Single stylesheet: `subway/static/subway/css/style.css` — uses CSS custom properties (`:root` variables)
+- Design tokens: `--color-*` (palette), `--space-*` (spacing scale), `--font-size-*` (typography), `--shadow-*`, `--radius-*`, `--transition-*`
+- MBTA line colors: `--mbta-red`, `--mbta-orange`, `--mbta-green`, `--mbta-blue`, `--mbta-mattapan`
+- Alert severity classes: `.alert-severity--high`, `--medium`, `--low` — use in JS when rendering alerts
+- Popup CSS classes: `.popup-title`, `.popup-section`, `.popup-line-badge`, `.popup-facilities`, `.popup-route-name`, `.prediction-item`, `.prediction-time` — use in JS when building popup HTML
+- Map legend: `.map-legend`, `.legend-item`, `.legend-swatch`, `.legend-label` — use for color legend on Map & Facilities page
+- Loading states: `.loading-spinner`, `.loading-text` — use for async data fetches
+- Responsive breakpoints: 768px (tablet), 480px (mobile)
+- When adding new CSS, use existing custom properties rather than hard-coding colors/spacing
+
 ## Gotchas
 - `.env` file must be present in project root with `MBTA_V3_API_KEY`
 - `.env` is in `.gitignore` — never commit it
