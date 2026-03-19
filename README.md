@@ -1,145 +1,214 @@
-# MBTA Subway Explorer
+# MBTA Subway
 
-A web application for viewing real-time train predictions, service alerts,
-station facilities, and interactive subway maps for the Massachusetts Bay
-Transportation Authority (MBTA) rapid transit system.
+A real-time web application for the Massachusetts Bay Transportation Authority
+(MBTA) subway system. View train predictions, service alerts, station
+facilities, and an interactive map of the entire subway network.
 
-**Author:** Mike Woodward
+## Author
+
+**Mike Woodward**
+
+## How It Works
+
+The application provides three pages accessible via tab navigation:
+
+### Trains & Alerts
+
+Select a subway line from the dropdown to see it drawn on an interactive map.
+The map zooms to fit all stations on the selected line. Any active service
+alerts for that line appear above the map. Click a station marker to see a
+popup with the next four predicted train arrivals per route, formatted as
+relative times (e.g. "3 min") or absolute times for trains further out.
+
+### Map & Facilities
+
+Displays all subway lines and stations on a single map with a color legend.
+Hover over or click any station to see its name, the lines it serves, and its
+facilities (elevators, escalators, etc.) in a popup.
+
+### About
+
+Lists the external services the application depends on, with links, and credits
+the author.
 
 ## Architecture
 
-The app is built with a **Django** backend serving a **vanilla JavaScript**
-frontend. There are no JavaScript build tools or frontend frameworks — the
-browser loads a single `app.js` file and interacts with Django API endpoints
-via `fetch()`.
-
 ```
-┌────────────────────────────────────────────────────────┐
-│  Browser (vanilla JS + Leaflet.js)                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ Trains &     │  │ Map &        │  │ About        │ │
-│  │ Alerts       │  │ Facilities   │  │              │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────┘ │
-│         │ fetch()         │ fetch()                    │
-└─────────┼─────────────────┼────────────────────────────┘
-          ▼                 ▼
-┌────────────────────────────────────────────────────────┐
-│  Django REST API                                       │
-│  GET /api/lines          — all subway line names       │
-│  GET /api/line/<name>    — line color, shapes, stations│
-│  GET /api/alerts/<name>  — current alerts for a line   │
-│  GET /api/predictions/<id> — arrival predictions       │
-│  GET /api/station/<id>   — station details & facilities│
-└──────────────────────┬─────────────────────────────────┘
-                       │ requests
-                       ▼
-              ┌─────────────────┐
-              │  MBTA V3 API    │
-              │  (mbta.com)     │
-              └─────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Browser                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
+│  │  app.js       │  │ map_fac.js   │  │ map_utils │ │
+│  │ (Trains page) │  │ (Map page)   │  │ (shared)  │ │
+│  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘ │
+│         │     fetch() JSON API      Leaflet │       │
+│         └──────────┬───────┘────────────────┘       │
+└────────────────────┼────────────────────────────────┘
+                     │ HTTP
+┌────────────────────┼────────────────────────────────┐
+│               Django 6.0                            │
+│  ┌─────────┐  ┌────┴─────┐  ┌──────────┐           │
+│  │ views.py│──│services.py│──│MBTA_class│           │
+│  │ (pages +│  │(singleton │  │ (API     │           │
+│  │  JSON)  │  │  + cache) │  │  client) │           │
+│  └─────────┘  └──────────┘  └────┬─────┘           │
+│  ┌──────────┐                    │                  │
+│  │schemas.py│  Pydantic          │                  │
+│  │(validate)│  validation        │                  │
+│  └──────────┘                    │                  │
+└──────────────────────────────────┼──────────────────┘
+                                   │ HTTPS
+                          ┌────────┴────────┐
+                          │  MBTA V3 API    │
+                          └─────────────────┘
 ```
 
-### Project Structure
+**Backend** — Django 6.0 project (`mbta_project`) with a single app (`subway`).
+There is no database; all transit data comes from the MBTA V3 API via the
+`MBTA` class. A service layer (`services.py`) initializes the MBTA client once
+at startup (~3 seconds), caches the result, and exposes wrapper functions.
+Django views serve HTML pages and JSON API endpoints. All API responses are
+validated through Pydantic schemas before serialization.
+
+**Frontend** — Vanilla JavaScript (ES2022+) with Leaflet.js for interactive
+maps. Two page-specific scripts (`app.js`, `map_facilities.js`) and a shared
+utility module (`map_utils.js`) handle map rendering, API fetching, and popup
+interactions. A single CSS stylesheet uses custom properties for theming and
+responsive breakpoints.
+
+**Project structure:**
 
 ```
-Ralph-Test-2/
-├── mbta_project/           # Django project settings, root URL conf, WSGI/ASGI
-│   ├── settings.py
-│   ├── urls.py
-│   ├── wsgi.py
-│   └── asgi.py
-├── subway/                 # Main Django app
-│   ├── MBTA_class.py       # MBTA API client wrapper
-│   ├── services.py         # Thread-safe MBTA singleton (get_mbta())
-│   ├── schemas.py          # Pydantic validation models
-│   ├── views.py            # Page views + API endpoints
-│   ├── urls.py             # App URL routing
-│   ├── templates/subway/   # Django HTML templates
-│   │   ├── base.html       # Shared layout with tab navigation + Leaflet CDN
-│   │   ├── trains_alerts.html
-│   │   ├── map_facilities.html
-│   │   └── about.html
-│   └── static/subway/
-│       ├── css/style.css   # App-wide stylesheet
-│       └── js/app.js       # All client-side interactivity
-├── manage.py
-├── requirements.txt
-└── .env                    # MBTA API key (not committed)
+mbta_project/              Django project settings, root URL config
+subway/                    Django app
+  MBTA_class.py            MBTA V3 API client (singleton)
+  services.py              Service layer wrapping MBTA client
+  schemas.py               Pydantic validation models
+  views.py                 Page views and JSON API views
+  urls.py                  URL routing
+  tests.py                 Unit and integration tests
+  static/subway/
+    css/style.css           Stylesheet with CSS custom properties
+    js/app.js               Trains & Alerts page logic
+    js/map_facilities.js    Map & Facilities page logic
+    js/map_utils.js         Shared Leaflet drawing utilities
+  templates/subway/
+    base.html               Base template with navigation
+    trains_alerts.html      Trains & Alerts page
+    map_facilities.html     Map & Facilities page
+    about.html              About page
+.env                       MBTA API key (not committed)
+requirements.txt           Python dependencies
 ```
 
-## Setup
+## Libraries and Versions
+
+### Python (3.12)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Django | 6.0.3 | Web framework — serves pages and JSON API endpoints |
+| Pydantic | 2.12.5 | Data validation — schemas for API responses |
+| requests | 2.32.5 | HTTP client — calls to the MBTA V3 API |
+| python-dotenv | 1.2.2 | Environment variables — loads `.env` for API key |
+
+Transitive dependencies (installed automatically):
+
+| Library | Version |
+|---------|---------|
+| annotated-types | 0.7.0 |
+| asgiref | 3.11.1 |
+| certifi | 2026.2.25 |
+| charset-normalizer | 3.4.6 |
+| idna | 3.11 |
+| pydantic_core | 2.41.5 |
+| sqlparse | 0.5.5 |
+| typing-inspection | 0.4.2 |
+| typing_extensions | 4.15.0 |
+| urllib3 | 2.6.3 |
+
+### JavaScript (browser, via CDN)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Leaflet.js | 1.9.4 | Interactive map rendering and controls |
+
+## External Services
+
+| Service | Purpose | Terms of Service |
+|---------|---------|------------------|
+| **MBTA V3 API** | Real-time subway data: lines, stations, alerts, predictions | [MBTA Developers License Agreement](https://www.mbta.com/developers/v3-api) |
+| **OpenStreetMap** | Base map tile imagery | [ODbL License & Tile Usage Policy](https://www.openstreetmap.org/copyright) |
+| **Leaflet.js** | Client-side map rendering library | [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE) |
+
+### Compliance Notes
+
+- **MBTA V3 API**: Data is used in accordance with the MassDOT Developers
+  License Agreement. The API key is stored in a `.env` file and never exposed
+  to end users or committed to version control.
+- **OpenStreetMap**: Attribution is provided on all map tiles via Leaflet's
+  built-in attribution control, linking to the OpenStreetMap copyright page.
+  Tile usage follows the OSM Foundation
+  [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+- **Leaflet.js**: Used under the BSD 2-Clause License. Loaded from the unpkg
+  CDN with subresource integrity (SRI) hashes.
+
+## Setup and Running
 
 ### Prerequisites
 
 - Python 3.12+
-- An MBTA V3 API key ([request one here](https://api-v3.mbta.com/register))
+- An MBTA V3 API key ([register here](https://api-v3.mbta.com/register))
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone <repository-url>
 cd Ralph-Test-2
 
 # Create and activate a virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Create .env file with your API key
+echo "MBTA_V3_API_KEY=your_api_key_here" > .env
 ```
 
-### Configuration
-
-Create a `.env` file in the project root with your MBTA API key:
-
-```
-MBTA_API_KEY=your_api_key_here
-```
-
-### Running the Dev Server
+### Running the Development Server
 
 ```bash
 source .venv/bin/activate
 python manage.py runserver
 ```
 
-The app will be available at [http://localhost:8000](http://localhost:8000).
+Open [http://localhost:8000](http://localhost:8000) in your browser. The root
+URL redirects to the Trains & Alerts page.
 
-> **Note:** The first request takes ~4–5 seconds while the MBTA API client
-> initializes and caches subway line data. Subsequent requests are instant.
+> **Note**: The first page load takes ~3 seconds while the MBTA client
+> initializes and caches line/station data. Subsequent requests are instant.
 
-## Libraries
+### Running Tests
 
-### Python
+```bash
+source .venv/bin/activate
+python manage.py test subway
+```
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| [Django](https://www.djangoproject.com/) | 6.0.3 | Web framework — routing, templates, static files |
-| [Pydantic](https://docs.pydantic.dev/) | 2.12.5 | Data validation for API request/response schemas |
-| [Requests](https://docs.python-requests.org/) | 2.32.5 | HTTP client for MBTA V3 API calls |
-| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.2.2 | Load `.env` file for API key configuration |
+> **Note**: There is no database, so `migrate` is not needed and will fail.
+> Tests use Django's `SimpleTestCase`.
 
-### JavaScript (CDN)
+## API Endpoints
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| [Leaflet.js](https://leafletjs.com/) | 1.9.4 | Interactive map rendering, markers, popups, controls |
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/api/lines/` | List of subway line names |
+| GET | `/api/line/<name>/` | Line data (color, shapes, stations) |
+| GET | `/api/line/<name>/alerts/` | Alerts for a line |
+| GET | `/api/station/<id>/` | Station details (name, facilities, lines served) |
+| GET | `/api/station/<id>/predictions/` | Train predictions for a station |
 
-### Runtime
-
-| Dependency | Version |
-|------------|---------|
-| Python | 3.12+ |
-
-## External Services
-
-| Service | Usage | Links |
-|---------|-------|-------|
-| **MBTA V3 API** | Real-time subway data: train predictions, service alerts, station info, route geometry | [Developer Portal](https://www.mbta.com/developers/v3-api) · [Terms of Use](https://www.mbta.com/policies/terms-use) |
-| **OpenStreetMap** | Map tile layer for all interactive maps | [openstreetmap.org](https://www.openstreetmap.org/) · [Terms of Use](https://wiki.osmfoundation.org/wiki/Terms_of_Use) |
-| **Leaflet.js** | Open-source JS library for mobile-friendly interactive maps | [leafletjs.com](https://leafletjs.com/) · [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE) |
-
-## License
-
-See [LICENSE](LICENSE) for details.
+Line names support spaces via URL encoding (e.g. `/api/line/Red%20Line/`).
+Invalid line names or station IDs return `404`. Server errors return `500`.
