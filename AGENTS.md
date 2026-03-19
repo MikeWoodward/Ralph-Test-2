@@ -51,6 +51,10 @@ python manage.py runserver
 - Page-specific JS: `subway/static/subway/js/app.js` (trains-alerts) and `map_facilities.js` (map-facilities)
 - Drawing functions return `L.layerGroup` instances — call `.remove()` to clear layers from the map
 - Station markers store `stationId` and `stationName` in Leaflet marker options for click handler access
+- Prediction popups: `attachPredictionHandlers(stationsLayer)` wires click→fetch→popup on station markers; must be called after layers are drawn
+- Popup mouseout close: shared `popupCloseTimeout` variable coordinates close delay between marker and popup DOM elements
+- Route colors: `ROUTE_COLORS` constant in `app.js` maps MBTA route IDs to hex colors; Green-* variants all use `"00843D"`
+- Always escape user-facing text in popups via `escapeHtml()` to prevent XSS
 
 ## CSS Design System
 - Single stylesheet: `subway/static/subway/css/style.css` — uses CSS custom properties (`:root` variables)

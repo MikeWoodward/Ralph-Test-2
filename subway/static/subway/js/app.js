@@ -2,13 +2,15 @@
 
 /**
  * Trains & Alerts page — Leaflet map initialization, line selection,
- * and alert display.
+ * alert display, and station prediction popups.
  *
  * On load, populates the line dropdown and draws all subway lines.
  * Selecting a line clears the map and redraws only that line, zoomed
  * to fit its stations. Alerts for the selected line are fetched and
- * rendered in the alerts area; "No current alerts" is shown when the
- * line has none.
+ * rendered in the alerts area.
+ *
+ * Clicking a station marker opens a popup with the next train
+ * predictions, grouped by route (up to 4 per route).
  *
  * Depends on: map_utils.js (loaded before this script).
  */
@@ -16,11 +18,24 @@
 const BOSTON_CENTER = [42.3601, -71.0589];
 const DEFAULT_ZOOM = 12;
 const FIT_BOUNDS_PADDING = [30, 30];
+const MAX_PREDICTIONS_PER_ROUTE = 4;
+const POPUP_CLOSE_DELAY_MS = 400;
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
     "OpenStreetMap</a> contributors";
+
+const ROUTE_COLORS = {
+    Red: "DA291C",
+    Orange: "ED8B00",
+    "Green-B": "00843D",
+    "Green-C": "00843D",
+    "Green-D": "00843D",
+    "Green-E": "00843D",
+    Blue: "003DA5",
+    Mattapan: "DA291C",
+};
 
 const map = L.map("map", {
     center: BOSTON_CENTER,
@@ -35,12 +50,176 @@ L.tileLayer(TILE_URL, {
 
 let currentShapesLayer = null;
 let currentStationsLayer = null;
+let popupCloseTimeout = null;
 
 /** Cached line names to avoid re-fetching when resetting to all-lines view. */
 let cachedLineNames = [];
 
 const lineSelect = document.getElementById("line-select");
 const alertsArea = document.getElementById("alerts-area");
+
+// ---------------------------------------------------------------------------
+// Popup dismiss-on-mouseout: hovering the popup cancels the close timer
+// ---------------------------------------------------------------------------
+
+map.on("popupopen", (e) => {
+    const popupEl = e.popup.getElement();
+    if (!popupEl) return;
+    popupEl.addEventListener("mouseenter", () => {
+        if (popupCloseTimeout) {
+            clearTimeout(popupCloseTimeout);
+            popupCloseTimeout = null;
+        }
+    });
+    popupEl.addEventListener("mouseleave", () => {
+        popupCloseTimeout = setTimeout(
+            () => map.closePopup(),
+            POPUP_CLOSE_DELAY_MS,
+        );
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Utility helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Escape HTML special characters to prevent XSS in popup content.
+ *
+ * @param {string} text - Raw text to escape.
+ * @returns {string} HTML-safe string.
+ */
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Look up the hex color for an MBTA route ID.
+ *
+ * @param {string} route - MBTA route ID (e.g. "Red", "Green-B").
+ * @returns {string} Hex color without '#'.
+ */
+function getRouteColor(route) {
+    if (ROUTE_COLORS[route]) return ROUTE_COLORS[route];
+    if (route.startsWith("Green")) return "00843D";
+    return "888888";
+}
+
+// ---------------------------------------------------------------------------
+// Prediction helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch predictions for a station from the API.
+ *
+ * @param {string} stationId - MBTA station ID (e.g. "place-knncl").
+ * @returns {Promise<Array<Object>>} Prediction objects, or empty array on error.
+ */
+async function fetchPredictions(stationId) {
+    try {
+        const encoded = encodeURIComponent(stationId);
+        const response = await fetch(
+            `/api/station/${encoded}/predictions/`,
+        );
+        if (!response.ok) {
+            console.error(
+                `Failed to fetch predictions for "${stationId}": ${response.status}`,
+            );
+            return [];
+        }
+        const data = await response.json();
+        return data.predictions ?? [];
+    } catch (error) {
+        console.error(
+            `Error fetching predictions for "${stationId}":`,
+            error,
+        );
+        return [];
+    }
+}
+
+/**
+ * Format a prediction into a human-readable time string.
+ *
+ * Uses arrival_time (falling back to departure_time). Shows relative
+ * minutes if under an hour, absolute time beyond that, or the
+ * prediction's comments field when no time is available.
+ *
+ * @param {Object} prediction - Object with arrival_time, departure_time, comments.
+ * @returns {string} Formatted time string.
+ */
+function formatPredictionTime(prediction) {
+    const time = prediction.arrival_time ?? prediction.departure_time;
+    if (!time) return prediction.comments ?? "\u2014";
+
+    const date = new Date(time);
+    const diffMin = Math.round((date - new Date()) / 60_000);
+
+    if (diffMin < 1) return prediction.comments ?? "Now";
+    if (diffMin < 60) return `${diffMin} min`;
+
+    return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+    });
+}
+
+/**
+ * Build popup HTML showing predictions grouped by route.
+ *
+ * @param {string} stationName - Display name of the station.
+ * @param {Array<Object>} predictions - Flat array of prediction objects.
+ * @returns {string} HTML string for the Leaflet popup.
+ */
+function buildPredictionPopupHTML(stationName, predictions) {
+    let html = `<div class="popup-title">${escapeHtml(stationName)}</div>`;
+
+    if (predictions.length === 0) {
+        html +=
+            '<p class="popup-no-predictions">No subway predictions</p>';
+        return html;
+    }
+
+    const grouped = new Map();
+    predictions.forEach((pred) => {
+        const group = grouped.get(pred.route) ?? [];
+        if (group.length < MAX_PREDICTIONS_PER_ROUTE) {
+            group.push(pred);
+        }
+        grouped.set(pred.route, group);
+    });
+
+    html += '<div class="popup-predictions">';
+
+    grouped.forEach((preds, route) => {
+        const color = getRouteColor(route);
+        html += '<div class="popup-route-group">';
+        html +=
+            `<span class="popup-route-name" style="background:#${color};">` +
+            `${escapeHtml(route)}</span>`;
+        html += '<ul class="prediction-list">';
+
+        preds.forEach((pred) => {
+            const timeStr = formatPredictionTime(pred);
+            html +=
+                '<li class="prediction-item">' +
+                `<span class="prediction-dest">${escapeHtml(pred.destination)}</span>` +
+                `<span class="prediction-time">${escapeHtml(timeStr)}</span>` +
+                "</li>";
+        });
+
+        html += "</ul></div>";
+    });
+
+    html += "</div>";
+    return html;
+}
+
+// ---------------------------------------------------------------------------
+// Layer management
+// ---------------------------------------------------------------------------
 
 /** Remove any currently drawn line/station layers from the map. */
 function clearCurrentLayers() {
@@ -53,6 +232,58 @@ function clearCurrentLayers() {
         currentStationsLayer = null;
     }
 }
+
+/**
+ * Attach click and mouseout handlers to every station marker so
+ * clicking opens a prediction popup that auto-closes on mouseout.
+ *
+ * @param {L.LayerGroup} stationsLayer - Layer group of CircleMarkers.
+ */
+function attachPredictionHandlers(stationsLayer) {
+    stationsLayer.eachLayer((marker) => {
+        marker.on("click", async () => {
+            const { stationId, stationName } = marker.options;
+
+            const loadingHtml =
+                `<div class="popup-title">${escapeHtml(stationName)}</div>` +
+                '<div class="loading-text">' +
+                '<span class="loading-spinner"></span>' +
+                "Loading predictions\u2026</div>";
+
+            marker
+                .bindPopup(loadingHtml, {
+                    autoPan: true,
+                    maxWidth: 320,
+                })
+                .openPopup();
+
+            const predictions = await fetchPredictions(stationId);
+            const html = buildPredictionPopupHTML(
+                stationName,
+                predictions,
+            );
+            marker.setPopupContent(html);
+        });
+
+        marker.on("mouseout", () => {
+            popupCloseTimeout = setTimeout(
+                () => map.closePopup(),
+                POPUP_CLOSE_DELAY_MS,
+            );
+        });
+
+        marker.on("mouseover", () => {
+            if (popupCloseTimeout) {
+                clearTimeout(popupCloseTimeout);
+                popupCloseTimeout = null;
+            }
+        });
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Alert helpers
+// ---------------------------------------------------------------------------
 
 /**
  * Fetch alerts for a given line from the API.
@@ -73,16 +304,18 @@ async function fetchLineAlerts(lineName) {
         const data = await response.json();
         return data.alerts ?? [];
     } catch (error) {
-        console.error(`Error fetching alerts for "${lineName}":`, error);
+        console.error(
+            `Error fetching alerts for "${lineName}":`,
+            error,
+        );
         return [];
     }
 }
 
 /**
  * Map an MBTA severity number to a CSS class suffix.
- * Higher severity values are more severe in the MBTA API.
  *
- * @param {number} severity - MBTA severity level (1–10).
+ * @param {number} severity - MBTA severity level (1-10).
  * @returns {string} One of "high", "medium", or "low".
  */
 function getSeverityLevel(severity) {
@@ -93,7 +326,6 @@ function getSeverityLevel(severity) {
 
 /**
  * Render alert items into the alerts area.
- * Shows "No current alerts" when the array is empty.
  *
  * @param {Array<Object>} alerts - Array of {headline, severity} objects.
  * @param {string} lineName - Display name of the selected line.
@@ -134,6 +366,10 @@ function clearAlerts() {
         '<p class="alerts-placeholder">Select a line to see alerts.</p>';
 }
 
+// ---------------------------------------------------------------------------
+// Line drawing
+// ---------------------------------------------------------------------------
+
 /**
  * Fetch data for all lines and draw them on the map.
  *
@@ -152,7 +388,9 @@ async function drawAllLines(lineNames) {
         .forEach((lineData) => {
             const { shapesLayer, stationsLayer } = drawLine(map, lineData);
 
-            shapesLayer.eachLayer((layer) => allShapesGroup.addLayer(layer));
+            shapesLayer.eachLayer((layer) =>
+                allShapesGroup.addLayer(layer),
+            );
             stationsLayer.eachLayer((layer) =>
                 allStationsGroup.addLayer(layer),
             );
@@ -166,6 +404,8 @@ async function drawAllLines(lineNames) {
 
     currentShapesLayer = allShapesGroup;
     currentStationsLayer = allStationsGroup;
+
+    attachPredictionHandlers(currentStationsLayer);
 }
 
 /**
@@ -188,7 +428,13 @@ async function drawSelectedLine(lineName) {
     if (bounds) {
         map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING });
     }
+
+    attachPredictionHandlers(currentStationsLayer);
 }
+
+// ---------------------------------------------------------------------------
+// Event handling
+// ---------------------------------------------------------------------------
 
 /**
  * Handle dropdown change: draw selected line with alerts, or restore
@@ -213,7 +459,10 @@ async function handleLineSelection() {
         ]);
         renderAlerts(alerts, selectedLine);
     } catch (error) {
-        console.error(`Error handling line selection "${selectedLine}":`, error);
+        console.error(
+            `Error handling line selection "${selectedLine}":`,
+            error,
+        );
     }
 }
 
