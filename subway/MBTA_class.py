@@ -26,8 +26,7 @@ class MBTA:
                 or .env file.
         """
 
-        # Get the api key — .env lives at the Django project root,
-        # one level above this file's directory (subway/)
+        # Get the api key — .env lives in the Django project root (one level up)
         project_root = Path(__file__).resolve().parent.parent
         dotenv_path = project_root / ".env"
         if dotenv_path.exists():
