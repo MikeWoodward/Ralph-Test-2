@@ -33,7 +33,9 @@ python manage.py runserver
 - URL namespace is `subway:` — use `reverse("subway:trains-alerts")` etc.
 - URL parameters: `<str:line_name>` (supports spaces via `%20`), `<str:station_id>` (e.g. `place-knncl`)
 - Root `/` redirects to `/trains-alerts/` via `RedirectView`
-- Views in `subway/views.py` are stubs until stories 3.2/3.3 wire up real MBTA data
+- All API views are wired to the service layer with proper error handling (404 for unknown resources, 500 for unexpected errors)
+- API views validate resource existence before fetching related data (e.g. check line/station exists before fetching alerts/predictions; return 404 for unknown resources)
+- API views use `.model_dump()` on Pydantic models for JSON serialization
 - Service layer: `subway/services.py` — singleton MBTA client with lazy initialization
 - Import service functions with `from subway import services` then call e.g. `services.get_line_names()`
 - Service functions validate return data through Pydantic schemas; views should use `.model_dump()` for JSON serialization

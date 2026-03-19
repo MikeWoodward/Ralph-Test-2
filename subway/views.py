@@ -153,7 +153,7 @@ def api_line_alerts(
 
 
 # ---------------------------------------------------------------------------
-# API views — station endpoints (stubs until story 3.3)
+# API views — station endpoints (story 3.3)
 # ---------------------------------------------------------------------------
 
 def api_station_detail(
@@ -163,18 +163,30 @@ def api_station_detail(
     """Return station details for a given station ID.
 
     GET /api/station/<station_id>/
+
+    Returns 404 if the station ID is not found.
     """
-    return JsonResponse(
-        {
-            "id": station_id,
-            "name": "",
-            "latitude": 0.0,
-            "longitude": 0.0,
-            "address": None,
-            "facilities": [],
-            "lines_served": [],
-        },
-    )
+    try:
+        station = services.get_station(station_id=station_id)
+        if station is None:
+            return JsonResponse(
+                {"error": f"Station '{station_id}' not found"},
+                status=404,
+            )
+        return JsonResponse(station.model_dump())
+    except Exception as exc:
+        tb = traceback.extract_tb(sys.exc_info()[2])
+        lineno = tb[-1].lineno if tb else "?"
+        logger.exception(
+            "Error fetching station '%s' (line %s): %s",
+            station_id,
+            lineno,
+            exc,
+        )
+        return JsonResponse(
+            {"error": f"Failed to fetch station '{station_id}'"},
+            status=500,
+        )
 
 
 def api_station_predictions(
@@ -184,7 +196,40 @@ def api_station_predictions(
     """Return predictions for a given station ID.
 
     GET /api/station/<station_id>/predictions/
+
+    Validates the station exists first (404 if not), then returns
+    the predictions array (which may be empty).
     """
-    return JsonResponse(
-        {"station_id": station_id, "predictions": []},
-    )
+    try:
+        if services.get_station(station_id=station_id) is None:
+            return JsonResponse(
+                {"error": f"Station '{station_id}' not found"},
+                status=404,
+            )
+        predictions = services.get_predictions(
+            station_id=station_id,
+        )
+        return JsonResponse({
+            "station_id": station_id,
+            "predictions": [
+                pred.model_dump() for pred in predictions
+            ],
+        })
+    except Exception as exc:
+        tb = traceback.extract_tb(sys.exc_info()[2])
+        lineno = tb[-1].lineno if tb else "?"
+        logger.exception(
+            "Error fetching predictions for '%s' (line %s): %s",
+            station_id,
+            lineno,
+            exc,
+        )
+        return JsonResponse(
+            {
+                "error": (
+                    f"Failed to fetch predictions for"
+                    f" '{station_id}'"
+                ),
+            },
+            status=500,
+        )

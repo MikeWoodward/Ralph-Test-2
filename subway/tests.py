@@ -146,3 +146,64 @@ class LineAPIViewsTest(SimpleTestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertIn("error", data)
+
+
+class StationAPIViewsTest(SimpleTestCase):
+    """Integration tests for station-related JSON API endpoints (story 3.3)."""
+
+    def test_api_station_detail_returns_200_for_valid_station(
+        self,
+    ) -> None:
+        """GET /api/station/place-knncl/ returns station JSON with expected keys."""
+        response = self.client.get("/api/station/place-knncl/")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn("id", data)
+        self.assertEqual(data["id"], "place-knncl")
+        self.assertIn("name", data)
+        self.assertIn("latitude", data)
+        self.assertIn("longitude", data)
+        self.assertIn("facilities", data)
+        self.assertIsInstance(data["facilities"], list)
+        self.assertIn("lines_served", data)
+        self.assertIsInstance(data["lines_served"], list)
+        self.assertGreater(
+            len(data["lines_served"]), 0,
+            "Station should serve at least one line",
+        )
+
+    def test_api_station_detail_returns_404_for_invalid_station(
+        self,
+    ) -> None:
+        """GET /api/station/place-xxxxx/ returns 404."""
+        response = self.client.get("/api/station/place-xxxxx/")
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertIn("error", data)
+
+    def test_api_station_predictions_returns_200_with_predictions_array(
+        self,
+    ) -> None:
+        """GET /api/station/place-knncl/predictions/ returns predictions array."""
+        response = self.client.get(
+            "/api/station/place-knncl/predictions/",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["station_id"], "place-knncl")
+        self.assertIn("predictions", data)
+        self.assertIsInstance(data["predictions"], list)
+        for pred in data["predictions"]:
+            self.assertIn("route", pred)
+            self.assertIn("destination", pred)
+
+    def test_api_station_predictions_returns_404_for_invalid_station(
+        self,
+    ) -> None:
+        """GET /api/station/place-xxxxx/predictions/ returns 404."""
+        response = self.client.get(
+            "/api/station/place-xxxxx/predictions/",
+        )
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertIn("error", data)
