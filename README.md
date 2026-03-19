@@ -142,15 +142,22 @@ Transitive dependencies (installed automatically):
 
 ### Compliance Notes
 
-- **MBTA V3 API**: Data is used in accordance with the MassDOT Developers
-  License Agreement. The API key is stored in a `.env` file and never exposed
-  to end users or committed to version control.
-- **OpenStreetMap**: Attribution is provided on all map tiles via Leaflet's
-  built-in attribution control, linking to the OpenStreetMap copyright page.
-  Tile usage follows the OSM Foundation
+- **MBTA V3 API**: Data is used in accordance with the
+  [MassDOT Developers License Agreement](https://www.mass.gov/doc/massdot-developers-license-agreement-0/download).
+  The API key is stored in a `.env` file and never exposed to end users or
+  committed to version control. MBTA data attribution (linking to the API page)
+  is displayed in the Leaflet attribution control on every map view.
+- **OpenStreetMap**: "© OpenStreetMap contributors" attribution with a link to
+  the [copyright page](https://www.openstreetmap.org/copyright) is displayed
+  on every map view via Leaflet's built-in attribution control. Tile usage
+  follows the OSM Foundation
   [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
-- **Leaflet.js**: Used under the BSD 2-Clause License. Loaded from the unpkg
-  CDN with subresource integrity (SRI) hashes.
+  Data is licensed under the
+  [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL).
+- **Leaflet.js**: Used under the
+  [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE).
+  Loaded from the unpkg CDN with subresource integrity (SRI) hashes. Leaflet
+  attribution is automatically shown in the map control.
 
 ## Setup and Running
 

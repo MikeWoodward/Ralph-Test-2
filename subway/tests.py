@@ -318,6 +318,36 @@ class AboutPageTest(SimpleTestCase):
         self.assertIn('target="_blank"', content)
         self.assertIn('rel="noopener"', content)
 
+    def test_page_documents_mbta_license(self) -> None:
+        """About page references the MassDOT Developers License Agreement."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("MassDOT Developers License Agreement", content)
+
+    def test_page_documents_osm_tile_usage_policy(self) -> None:
+        """About page links to the OSM tile usage policy."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn(
+            "operations.osmfoundation.org/policies/tiles/", content,
+        )
+
+    def test_page_documents_leaflet_license(self) -> None:
+        """About page links to the Leaflet BSD 2-Clause license."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("BSD 2-Clause License", content)
+        self.assertIn(
+            "github.com/Leaflet/Leaflet/blob/main/LICENSE", content,
+        )
+
+    def test_page_has_attribution_section(self) -> None:
+        """About page includes a section explaining map attribution."""
+        response = self.client.get("/about/")
+        content = response.content.decode()
+        self.assertIn("Attribution", content)
+        self.assertIn("attribution", content.lower())
+
 
 class ZoomToFitTest(SimpleTestCase):
     """Validate every line has station coordinates suitable for fitBounds (story 8.2).

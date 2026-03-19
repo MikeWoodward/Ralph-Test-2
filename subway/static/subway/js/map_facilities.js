@@ -23,7 +23,8 @@ const AUTOPAN_PADDING = [50, 50];
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
-    '&copy; <a href="https://www.openstreetmap.org/copyright">' +
+    'Data: <a href="https://www.mbta.com/developers/v3-api">MBTA V3 API</a>' +
+    ' | Map: &copy; <a href="https://www.openstreetmap.org/copyright">' +
     "OpenStreetMap</a> contributors";
 
 const map = L.map("map", {
