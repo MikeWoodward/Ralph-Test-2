@@ -33,13 +33,19 @@ python manage.py runserver
 - URL namespace is `subway:` — use `reverse("subway:trains-alerts")` etc.
 - URL parameters: `<str:line_name>` (supports spaces via `%20`), `<str:station_id>` (e.g. `place-knncl`)
 - Root `/` redirects to `/trains-alerts/` via `RedirectView`
-- Views in `subway/views.py` are stubs until the service layer (story 3.1) wires up real MBTA data
+- Views in `subway/views.py` are stubs until stories 3.2/3.3 wire up real MBTA data
+- Service layer: `subway/services.py` — singleton MBTA client with lazy initialization
+- Import service functions with `from subway import services` then call e.g. `services.get_line_names()`
+- Service functions validate return data through Pydantic schemas; views should use `.model_dump()` for JSON serialization
+- `services.get_station()` computes `lines_served` by scanning cached `_mbta_client.lines`
 
 ## Gotchas
 - `.env` file must be present in project root with `MBTA_V3_API_KEY`
 - `.env` is in `.gitignore` — never commit it
 - `DATABASES = {}` means `migrate` is not needed and will fail
+- `DATABASES = {}` also means tests must use `SimpleTestCase`, not `TestCase` (TestCase tries to flush the DB)
 - MBTA_class.py was copied from `../MBTA-API/` with one change: `.env` path uses `parent.parent` instead of `parent`
+- First call to any service function triggers ~3s initialization; subsequent calls are instant
 
 ## Dependencies
 - Python packages: Django, Pydantic, requests, python-dotenv
