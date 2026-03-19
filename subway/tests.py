@@ -148,6 +148,61 @@ class LineAPIViewsTest(SimpleTestCase):
         self.assertIn("error", data)
 
 
+class TrainsAlertsPageTest(SimpleTestCase):
+    """Verify the Trains & Alerts page renders with all required elements (story 5.1)."""
+
+    def test_page_returns_200(self) -> None:
+        """GET /trains-alerts/ returns 200."""
+        response = self.client.get("/trains-alerts/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self) -> None:
+        """Page renders via trains_alerts.html extending base.html."""
+        response = self.client.get("/trains-alerts/")
+        self.assertTemplateUsed(response, "subway/trains_alerts.html")
+        self.assertTemplateUsed(response, "subway/base.html")
+
+    def test_page_has_line_dropdown(self) -> None:
+        """Page contains a select element for choosing a subway line."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn('id="line-select"', content)
+        self.assertIn("<select", content)
+
+    def test_page_has_alerts_area(self) -> None:
+        """Page contains an alerts display area above the map."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn('id="alerts-area"', content)
+        self.assertIn("alerts-area", content)
+
+    def test_page_has_map_container(self) -> None:
+        """Page contains a Leaflet map container div."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn('id="map"', content)
+        self.assertIn("map-container", content)
+
+    def test_page_loads_leaflet(self) -> None:
+        """Page includes Leaflet CSS and JS from CDN."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn("leaflet.css", content)
+        self.assertIn("leaflet.js", content)
+
+    def test_page_loads_app_js(self) -> None:
+        """Page includes the app.js script."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn("app.js", content)
+
+    def test_active_page_context(self) -> None:
+        """Active nav tab is set to trains-alerts."""
+        response = self.client.get("/trains-alerts/")
+        content = response.content.decode()
+        self.assertIn("nav-tab--active", content)
+
+
 class StationAPIViewsTest(SimpleTestCase):
     """Integration tests for station-related JSON API endpoints (story 3.3)."""
 
