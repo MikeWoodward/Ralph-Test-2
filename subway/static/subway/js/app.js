@@ -378,7 +378,8 @@ function clearAlerts() {
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch data for all lines and draw them on the map.
+ * Fetch data for all lines and draw them on the map, then
+ * zoom to fit every station within the viewport.
  *
  * @param {Array<string>} lineNames - Line names to fetch and draw.
  */
@@ -389,6 +390,7 @@ async function drawAllLines(lineNames) {
 
     const allShapesGroup = L.layerGroup();
     const allStationsGroup = L.layerGroup();
+    const allStations = [];
 
     lineDataResults
         .filter((data) => data !== null)
@@ -402,6 +404,8 @@ async function drawAllLines(lineNames) {
                 allStationsGroup.addLayer(layer),
             );
 
+            allStations.push(...lineData.stations);
+
             shapesLayer.remove();
             stationsLayer.remove();
         });
@@ -411,6 +415,11 @@ async function drawAllLines(lineNames) {
 
     currentShapesLayer = allShapesGroup;
     currentStationsLayer = allStationsGroup;
+
+    const bounds = getStationBounds(allStations);
+    if (bounds) {
+        map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING });
+    }
 
     attachPredictionHandlers(currentStationsLayer);
 }
@@ -456,7 +465,6 @@ async function handleLineSelection() {
         if (!selectedLine) {
             clearAlerts();
             await drawAllLines(cachedLineNames);
-            map.setView(BOSTON_CENTER, DEFAULT_ZOOM);
             return;
         }
 

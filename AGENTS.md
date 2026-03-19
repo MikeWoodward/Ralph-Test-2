@@ -53,8 +53,11 @@ python manage.py runserver
 - Station markers store `stationId` and `stationName` in Leaflet marker options for click handler access
 - Prediction popups: `attachPredictionHandlers(stationsLayer)` wires click→fetch→popup on station markers; must be called after layers are drawn
 - Popup mouseout close: shared `popupCloseTimeout` variable coordinates close delay between marker and popup DOM elements
+- Popup Leaflet options: both pages set `maxHeight`, `autoPanPadding: [50, 50]`, and `keepInView: true` — Leaflet `maxHeight` must be set in JS (not just CSS) for autopan positioning to work correctly
 - Route colors: `ROUTE_COLORS` constant in `app.js` maps MBTA route IDs to hex colors; Green-* variants all use `"00843D"`
 - Always escape user-facing text in popups via `escapeHtml()` to prevent XSS
+- Zoom-to-fit: both pages use `getStationBounds()` + `map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING })` — never use a hardcoded `setView` for all-lines view; always compute bounds from station coordinates
+- `FIT_BOUNDS_PADDING = [30, 30]` is consistent across `app.js` and `map_facilities.js`
 
 ## CSS Design System
 - Single stylesheet: `subway/static/subway/css/style.css` — uses CSS custom properties (`:root` variables)
@@ -65,6 +68,7 @@ python manage.py runserver
 - Map legend: `.map-legend`, `.legend-item`, `.legend-swatch`, `.legend-label` — use for color legend on Map & Facilities page
 - Loading states: `.loading-spinner`, `.loading-text` — use for async data fetches
 - Responsive breakpoints: 768px (tablet), 480px (mobile)
+- Popup viewport constraints use CSS `min()` for responsive sizing: `min(280px, 50vh)` height, `min(320px, 80vw)` width
 - When adding new CSS, use existing custom properties rather than hard-coding colors/spacing
 
 ## Gotchas

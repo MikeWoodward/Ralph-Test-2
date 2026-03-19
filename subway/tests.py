@@ -319,6 +319,130 @@ class AboutPageTest(SimpleTestCase):
         self.assertIn('rel="noopener"', content)
 
 
+class ZoomToFitTest(SimpleTestCase):
+    """Validate every line has station coordinates suitable for fitBounds (story 8.2).
+
+    Ensures that each subway line returns stations with valid latitude/longitude
+    values within the greater Boston area, and that the Map & Facilities page and
+    Trains & Alerts page can compute fitBounds from those coordinates.
+    """
+
+    BOSTON_LAT_MIN = 42.15
+    BOSTON_LAT_MAX = 42.55
+    BOSTON_LNG_MIN = -71.30
+    BOSTON_LNG_MAX = -70.85
+
+    def test_every_line_has_at_least_one_station(self) -> None:
+        """Each line must have >=1 station so fitBounds can compute bounds."""
+        line_names = get_line_names()
+        for name in line_names:
+            line = get_line(line_name=name)
+            self.assertIsNotNone(
+                line,
+                f"Line '{name}' returned None",
+            )
+            self.assertGreater(
+                len(line.stations), 0,
+                f"Line '{name}' has no stations — fitBounds would fail",
+            )
+
+    def test_every_station_has_valid_coordinates(self) -> None:
+        """All stations must have numeric latitude and longitude."""
+        line_names = get_line_names()
+        for name in line_names:
+            line = get_line(line_name=name)
+            for station in line.stations:
+                self.assertIsInstance(
+                    station.latitude, float,
+                    f"Station '{station.name}' on '{name}' has "
+                    f"non-float latitude: {station.latitude!r}",
+                )
+                self.assertIsInstance(
+                    station.longitude, float,
+                    f"Station '{station.name}' on '{name}' has "
+                    f"non-float longitude: {station.longitude!r}",
+                )
+
+    def test_station_coordinates_within_boston_area(self) -> None:
+        """Station coordinates should fall within greater Boston bounds."""
+        line_names = get_line_names()
+        for name in line_names:
+            line = get_line(line_name=name)
+            for station in line.stations:
+                self.assertGreaterEqual(
+                    station.latitude, self.BOSTON_LAT_MIN,
+                    f"Station '{station.name}' latitude {station.latitude} "
+                    f"is south of expected Boston area",
+                )
+                self.assertLessEqual(
+                    station.latitude, self.BOSTON_LAT_MAX,
+                    f"Station '{station.name}' latitude {station.latitude} "
+                    f"is north of expected Boston area",
+                )
+                self.assertGreaterEqual(
+                    station.longitude, self.BOSTON_LNG_MIN,
+                    f"Station '{station.name}' longitude {station.longitude} "
+                    f"is west of expected Boston area",
+                )
+                self.assertLessEqual(
+                    station.longitude, self.BOSTON_LNG_MAX,
+                    f"Station '{station.name}' longitude {station.longitude} "
+                    f"is east of expected Boston area",
+                )
+
+    def test_api_line_detail_returns_stations_with_coordinates(
+        self,
+    ) -> None:
+        """API line detail endpoint returns station objects with lat/lng for JS fitBounds."""
+        line_names = get_line_names()
+        for name in line_names:
+            response = self.client.get(
+                f"/api/line/{name.replace(' ', '%20')}/",
+            )
+            self.assertEqual(response.status_code, 200)
+            data = json.loads(response.content)
+            stations = data.get("stations", [])
+            self.assertGreater(
+                len(stations), 0,
+                f"API returned no stations for '{name}'",
+            )
+            for station in stations:
+                self.assertIn(
+                    "latitude", station,
+                    f"Station missing latitude in API response for '{name}'",
+                )
+                self.assertIn(
+                    "longitude", station,
+                    f"Station missing longitude in API response for '{name}'",
+                )
+
+    def test_all_lines_combined_produce_valid_bounds(self) -> None:
+        """Collecting stations from all lines yields a valid bounding box."""
+        line_names = get_line_names()
+        all_lats = []
+        all_lngs = []
+        for name in line_names:
+            line = get_line(line_name=name)
+            for station in line.stations:
+                all_lats.append(station.latitude)
+                all_lngs.append(station.longitude)
+
+        self.assertGreater(
+            len(all_lats), 0,
+            "No station coordinates found across all lines",
+        )
+        lat_range = max(all_lats) - min(all_lats)
+        lng_range = max(all_lngs) - min(all_lngs)
+        self.assertGreater(
+            lat_range, 0,
+            "All stations have the same latitude",
+        )
+        self.assertGreater(
+            lng_range, 0,
+            "All stations have the same longitude",
+        )
+
+
 class StationAPIViewsTest(SimpleTestCase):
     """Integration tests for station-related JSON API endpoints (story 3.3)."""
 
