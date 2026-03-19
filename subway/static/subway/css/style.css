@@ -325,6 +325,7 @@ a:focus-visible {
 }
 
 .map-facilities-page {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex: 1;

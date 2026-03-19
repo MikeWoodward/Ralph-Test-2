@@ -203,6 +203,63 @@ class TrainsAlertsPageTest(SimpleTestCase):
         self.assertIn("nav-tab--active", content)
 
 
+class MapFacilitiesPageTest(SimpleTestCase):
+    """Verify the Map & Facilities page renders with all required elements (story 5.2)."""
+
+    def test_page_returns_200(self) -> None:
+        """GET /map-facilities/ returns 200."""
+        response = self.client.get("/map-facilities/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_page_uses_correct_template(self) -> None:
+        """Page renders via map_facilities.html extending base.html."""
+        response = self.client.get("/map-facilities/")
+        self.assertTemplateUsed(
+            response, "subway/map_facilities.html",
+        )
+        self.assertTemplateUsed(response, "subway/base.html")
+
+    def test_page_has_full_width_map_container(self) -> None:
+        """Page contains a Leaflet map container with full-width class."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn('id="map"', content)
+        self.assertIn("map-container", content)
+        self.assertIn("map-container--full", content)
+
+    def test_page_has_legend_overlay(self) -> None:
+        """Page reserves space for a color legend overlay."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn('id="map-legend"', content)
+        self.assertIn("map-legend", content)
+
+    def test_page_loads_leaflet(self) -> None:
+        """Page includes Leaflet CSS and JS from CDN."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn("leaflet.css", content)
+        self.assertIn("leaflet.js", content)
+
+    def test_page_loads_map_facilities_js(self) -> None:
+        """Page includes the map_facilities.js script."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn("map_facilities.js", content)
+
+    def test_active_page_context(self) -> None:
+        """Active nav tab is set to map-facilities."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn("nav-tab--active", content)
+
+    def test_legend_has_heading(self) -> None:
+        """Legend container includes a heading for subway lines."""
+        response = self.client.get("/map-facilities/")
+        content = response.content.decode()
+        self.assertIn("Subway Lines", content)
+
+
 class StationAPIViewsTest(SimpleTestCase):
     """Integration tests for station-related JSON API endpoints (story 3.3)."""
 
