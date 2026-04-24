@@ -186,6 +186,10 @@ const clearAlertsContent = ({ alertsContent }) => {
     alertsContent.replaceChildren();
 };
 
+const hideAlertsPanel = ({ alertsPanel }) => {
+    alertsPanel.hidden = true;
+};
+
 const showAlertsPanel = ({ alertsPanel }) => {
     alertsPanel.hidden = false;
 };
@@ -306,6 +310,19 @@ const renderAlertsErrorState = ({ alertsPanel, alertsContent, lineName }) => {
     );
 };
 
+const resetSelectedLineState = ({ alertsContent, alertsPanel }) => {
+    activeSelectionRequestId += 1;
+    removeSelectedLineLayer();
+    clearAlertsContent({ alertsContent });
+    hideAlertsPanel({ alertsPanel });
+
+    if (trainsMap) {
+        trainsMap.fitBounds(SUBWAY_SYSTEM_BOUNDS, {
+            padding: MAP_PADDING,
+        });
+    }
+};
+
 const handleLineSelection = async ({
     alertsContent,
     alertsPanel,
@@ -314,6 +331,10 @@ const handleLineSelection = async ({
     const selectedLineName = lineSelect.value.trim();
 
     if (!selectedLineName) {
+        resetSelectedLineState({
+            alertsContent,
+            alertsPanel,
+        });
         return;
     }
 

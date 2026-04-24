@@ -22,6 +22,7 @@ python manage.py runserver
 - When a page needs a full-width map layout, add a page-specific wrapper class in the template and keep the shared `page-content` shell generic instead of changing the centered card styles used by other pages.
 - For Leaflet views that redraw one selected route, keep the rendered polylines and station markers inside one `L.featureGroup`, remove that group before drawing the next selection, and call `fitBounds()` on the replacement group so the viewport follows the active route.
 - On the Trains & Alerts page, fetch line detail and line alerts in parallel after a non-default selection, keep the alerts panel hidden until a line is selected, and make `#alerts-content` the scrollable container so long alert lists do not grow the whole page.
+- When the Trains & Alerts dropdown returns to its default option, invalidate the active request token, remove the selected `L.featureGroup`, clear alert DOM content, hide the alerts panel, and refit the map to the full-system bounds so stale responses cannot restore an old selection.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.

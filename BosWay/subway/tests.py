@@ -299,6 +299,22 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn("max-height: 16rem;", stylesheet_text)
         self.assertIn("overflow-y: auto;", stylesheet_text)
 
+    def test_trains_script_resets_line_state_on_default_selection(
+        self,
+    ) -> None:
+        """Ensure the default dropdown option clears map and alerts state."""
+        script_path = finders.find("subway/js/trains_alerts.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn("const resetSelectedLineState = ", script_text)
+        self.assertIn("if (!selectedLineName) {", script_text)
+        self.assertIn("removeSelectedLineLayer();", script_text)
+        self.assertIn("clearAlertsContent({ alertsContent });", script_text)
+        self.assertIn("alertsPanel.hidden = true;", script_text)
+        self.assertIn("trainsMap.fitBounds(SUBWAY_SYSTEM_BOUNDS", script_text)
+
 
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""
