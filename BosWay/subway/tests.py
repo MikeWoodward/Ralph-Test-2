@@ -315,6 +315,29 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn("alertsPanel.hidden = true;", script_text)
         self.assertIn("trainsMap.fitBounds(SUBWAY_SYSTEM_BOUNDS", script_text)
 
+    def test_trains_script_opens_station_prediction_popups(
+        self,
+    ) -> None:
+        """Ensure station markers fetch and render grouped predictions."""
+        script_path = finders.find("subway/js/trains_alerts.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'const STATION_PREDICTIONS_SUFFIX = "/predictions";',
+            script_text,
+        )
+        self.assertIn("stationId: station.station_id", script_text)
+        self.assertIn('stationLayer.on("click"', script_text)
+        self.assertIn(
+            "fetchStationPredictions({ stationId })",
+            script_text,
+        )
+        self.assertIn("MAX_PREDICTIONS_PER_LINE = 4", script_text)
+        self.assertIn("No subway predictions.", script_text)
+        self.assertIn("marker.bindPopup(", script_text)
+
 
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""

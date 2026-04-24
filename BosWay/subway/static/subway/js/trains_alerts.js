@@ -3,6 +3,8 @@
 const LINE_NAMES_ENDPOINT = "/api/lines";
 const LINE_DETAIL_ENDPOINT_BASE = "/api/lines/";
 const LINE_ALERTS_SUFFIX = "/alerts";
+const STATION_ENDPOINT_BASE = "/api/stations/";
+const STATION_PREDICTIONS_SUFFIX = "/predictions";
 const TILE_LAYER_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_LAYER_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
@@ -16,6 +18,12 @@ const DEFAULT_LINE_COLOR = "#1f2937";
 const LINE_WEIGHT = 4;
 const STATION_MARKER_RADIUS = 6;
 const STATION_MARKER_WEIGHT = 2;
+const MAX_PREDICTIONS_PER_LINE = 4;
+
+const predictionTimeFormatter = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+});
 
 let trainsMap = null;
 let selectedLineLayerGroup = null;
@@ -65,11 +73,28 @@ const reportSelectedLineError = (error) => {
     console.error("Unable to render the selected subway line.", stackFrame, error);
 };
 
+const reportPredictionLoadError = (error) => {
+    const stackFrame =
+        typeof error?.stack === "string"
+            ? (error.stack.split("\n")[1] ?? "unknown").trim()
+            : "unknown";
+
+    console.error(
+        "Unable to load station predictions.",
+        stackFrame,
+        error,
+    );
+};
+
 const getLineDetailEndpoint = ({ lineName }) =>
     `${LINE_DETAIL_ENDPOINT_BASE}${encodeURIComponent(lineName)}`;
 
 const getLineAlertsEndpoint = ({ lineName }) =>
     `${getLineDetailEndpoint({ lineName })}${LINE_ALERTS_SUFFIX}`;
+
+const getStationPredictionsEndpoint = ({ stationId }) =>
+    `${STATION_ENDPOINT_BASE}${encodeURIComponent(stationId)}` +
+    `${STATION_PREDICTIONS_SUFFIX}`;
 
 const getLineColor = ({ color }) =>
     typeof color === "string" && color.trim().length > 0
@@ -116,6 +141,30 @@ const fetchLineAlerts = async ({ lineName }) => {
     return alerts;
 };
 
+const fetchStationPredictions = async ({ stationId }) => {
+    const response = await fetch(getStationPredictionsEndpoint({ stationId }), {
+        headers: {
+            Accept: "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Unable to load station predictions (${response.status}).`,
+        );
+    }
+
+    const predictions = await response.json();
+
+    if (!Array.isArray(predictions)) {
+        throw new TypeError(
+            "Expected the station predictions endpoint to return an array.",
+        );
+    }
+
+    return predictions;
+};
+
 const removeSelectedLineLayer = () => {
     if (selectedLineLayerGroup) {
         selectedLineLayerGroup.remove();
@@ -155,9 +204,264 @@ const buildStationLayers = ({ lineData, lineColor }) =>
                     weight: STATION_MARKER_WEIGHT,
                     fillColor: "#ffffff",
                     fillOpacity: 1,
+                    stationId: station.station_id,
+                    stationName:
+                        typeof station.name === "string" && station.name.trim()
+                            ? station.name.trim()
+                            : "Selected station",
                 },
             ),
         );
+
+const getPredictionTimestamp = ({ prediction }) => {
+    const candidateTimestamp =
+        typeof prediction?.arrival_time === "string" &&
+        prediction.arrival_time.trim()
+            ? prediction.arrival_time
+            : prediction?.departure_time;
+
+    if (typeof candidateTimestamp !== "string" || !candidateTimestamp.trim()) {
+        return null;
+    }
+
+    const timestamp = Date.parse(candidateTimestamp);
+    return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const formatPredictionTime = ({ prediction }) => {
+    const timestamp = getPredictionTimestamp({ prediction });
+
+    if (timestamp !== null) {
+        const minutesUntilArrival = Math.ceil((timestamp - Date.now()) / 60000);
+
+        if (minutesUntilArrival <= 0) {
+            return "Due";
+        }
+
+        if (minutesUntilArrival < 60) {
+            return `${minutesUntilArrival} min`;
+        }
+
+        return predictionTimeFormatter.format(new Date(timestamp));
+    }
+
+    if (typeof prediction?.status === "string" && prediction.status.trim()) {
+        return prediction.status.trim();
+    }
+
+    return "Time unavailable";
+};
+
+const sortPredictions = ({ predictions }) =>
+    [...predictions].sort((leftPrediction, rightPrediction) => {
+        const leftTimestamp = getPredictionTimestamp({
+            prediction: leftPrediction,
+        });
+        const rightTimestamp = getPredictionTimestamp({
+            prediction: rightPrediction,
+        });
+
+        if (leftTimestamp !== null && rightTimestamp !== null) {
+            return leftTimestamp - rightTimestamp;
+        }
+
+        if (leftTimestamp !== null) {
+            return -1;
+        }
+
+        if (rightTimestamp !== null) {
+            return 1;
+        }
+
+        return formatPredictionTime({ prediction: leftPrediction }).localeCompare(
+            formatPredictionTime({ prediction: rightPrediction }),
+        );
+    });
+
+const groupPredictionsByLine = ({ predictions }) =>
+    sortPredictions({ predictions }).reduce((predictionGroups, prediction) => {
+        const lineName =
+            typeof prediction?.line === "string" ? prediction.line.trim() : "";
+
+        if (!lineName) {
+            return predictionGroups;
+        }
+
+        const groupedPredictions = predictionGroups.get(lineName) ?? [];
+
+        if (groupedPredictions.length >= MAX_PREDICTIONS_PER_LINE) {
+            return predictionGroups;
+        }
+
+        predictionGroups.set(lineName, [...groupedPredictions, prediction]);
+        return predictionGroups;
+    }, new Map());
+
+const createPredictionPopupMessage = ({ className, text }) => {
+    const message = document.createElement("p");
+    message.className = className;
+    message.textContent = text;
+    return message;
+};
+
+const createPredictionPopupRoot = ({ stationName }) => {
+    const popupRoot = document.createElement("section");
+    popupRoot.className = "trains-page__prediction-popup";
+
+    const title = document.createElement("h3");
+    title.className = "trains-page__prediction-title";
+    title.textContent = stationName;
+    popupRoot.append(title);
+
+    return popupRoot;
+};
+
+const createPredictionGroup = ({ lineName, predictions }) => {
+    const group = document.createElement("section");
+    group.className = "trains-page__prediction-group";
+
+    const heading = document.createElement("h4");
+    heading.className = "trains-page__prediction-line";
+    heading.textContent = lineName;
+    group.append(heading);
+
+    const predictionList = document.createElement("ul");
+    predictionList.className = "trains-page__prediction-list";
+
+    predictions.forEach((prediction) => {
+        const predictionItem = document.createElement("li");
+        predictionItem.className = "trains-page__prediction-item";
+
+        const destination = document.createElement("span");
+        destination.className = "trains-page__prediction-destination";
+        destination.textContent =
+            typeof prediction?.destination === "string" &&
+            prediction.destination.trim()
+                ? prediction.destination.trim()
+                : "Destination unavailable";
+
+        const time = document.createElement("span");
+        time.className = "trains-page__prediction-time";
+        time.textContent = formatPredictionTime({ prediction });
+
+        predictionItem.append(destination, time);
+        predictionList.append(predictionItem);
+    });
+
+    group.append(predictionList);
+    return group;
+};
+
+const buildPredictionPopupContent = ({ stationName, predictions }) => {
+    const popupRoot = createPredictionPopupRoot({ stationName });
+    const predictionGroups = groupPredictionsByLine({ predictions });
+
+    if (predictionGroups.size === 0) {
+        popupRoot.append(
+            createPredictionPopupMessage({
+                className: "trains-page__prediction-status",
+                text: "No subway predictions.",
+            }),
+        );
+        return popupRoot;
+    }
+
+    Array.from(predictionGroups.entries())
+        .sort(([leftLineName], [rightLineName]) =>
+            leftLineName.localeCompare(rightLineName),
+        )
+        .forEach(([lineName, linePredictions]) => {
+            popupRoot.append(
+                createPredictionGroup({
+                    lineName,
+                    predictions: linePredictions,
+                }),
+            );
+        });
+
+    return popupRoot;
+};
+
+const openStationPredictionsPopup = async ({ marker }) => {
+    const stationId =
+        typeof marker?.options?.stationId === "string"
+            ? marker.options.stationId.trim()
+            : "";
+    const stationName =
+        typeof marker?.options?.stationName === "string" &&
+        marker.options.stationName.trim()
+            ? marker.options.stationName.trim()
+            : "Selected station";
+
+    if (!stationId) {
+        return;
+    }
+
+    const nextPredictionRequestId =
+        Number.isInteger(marker.options.predictionRequestId)
+            ? marker.options.predictionRequestId + 1
+            : 1;
+
+    marker.options.predictionRequestId = nextPredictionRequestId;
+    marker.bindPopup(
+        (() => {
+            const popupRoot = createPredictionPopupRoot({ stationName });
+            popupRoot.append(
+                createPredictionPopupMessage({
+                    className: "trains-page__prediction-status",
+                    text: "Loading subway predictions...",
+                }),
+            );
+            return popupRoot;
+        })(),
+    );
+    marker.openPopup();
+
+    try {
+        const predictions = await fetchStationPredictions({ stationId });
+
+        if (marker.options.predictionRequestId !== nextPredictionRequestId) {
+            return;
+        }
+
+        marker.setPopupContent(
+            buildPredictionPopupContent({
+                stationName,
+                predictions,
+            }),
+        );
+    } catch (error) {
+        if (marker.options.predictionRequestId !== nextPredictionRequestId) {
+            return;
+        }
+
+        marker.setPopupContent(
+            (() => {
+                const popupRoot = createPredictionPopupRoot({ stationName });
+                popupRoot.append(
+                    createPredictionPopupMessage({
+                        className:
+                            "trains-page__prediction-status " +
+                            "trains-page__prediction-status--error",
+                        text: "Unable to load subway predictions.",
+                    }),
+                );
+                return popupRoot;
+            })(),
+        );
+        reportPredictionLoadError(error);
+    }
+};
+
+const attachStationPredictionHandlers = ({ stationLayers }) => {
+    stationLayers.forEach((stationLayer) => {
+        stationLayer.on("click", () => {
+            void openStationPredictionsPopup({
+                marker: stationLayer,
+            });
+        });
+    });
+};
 
 const renderSelectedLine = ({ lineData }) => {
     if (!trainsMap || typeof window.L === "undefined") {
@@ -165,9 +469,12 @@ const renderSelectedLine = ({ lineData }) => {
     }
 
     const lineColor = getLineColor({ color: lineData?.color });
+    const stationLayers = buildStationLayers({ lineData, lineColor });
+
+    attachStationPredictionHandlers({ stationLayers });
     const renderedLayers = [
         ...buildShapeLayers({ lineData, lineColor }),
-        ...buildStationLayers({ lineData, lineColor }),
+        ...stationLayers,
     ];
 
     removeSelectedLineLayer();
