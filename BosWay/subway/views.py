@@ -1,8 +1,11 @@
-"""Page views for the BosWay subway app."""
+"""Views for the BosWay subway app."""
 
+from django.http import JsonResponse
 from django.http import HttpRequest
 from django.http import HttpResponse
 from django.shortcuts import render
+
+from . import services
 
 
 def trains_alerts(
@@ -22,4 +25,22 @@ def trains_alerts(
         {
             "page_title": "trains & alerts",
         },
+    )
+
+
+def line_names(
+    request: HttpRequest,
+) -> JsonResponse:
+    """Return the subway line names for frontend page-load requests.
+
+    Args:
+        request: The incoming Django request.
+
+    Returns:
+        A JSON array of subway line display names.
+    """
+    _ = request
+    return JsonResponse(
+        services.get_line_names(),
+        safe=False,
     )

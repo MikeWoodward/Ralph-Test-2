@@ -21,6 +21,7 @@ python manage.py runserver
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
 - Keep Pydantic response models in `BosWay/subway/schemas.py`, and normalize raw `MBTA_class.py` payloads inside `BosWay/subway/services.py` before views consume them.
 - Startup MBTA initialization belongs in `BosWay/subway/apps.py` via `SubwayConfig.ready()` and must stay idempotent because Django can call `ready()` more than once in tests.
+- When a JSON endpoint returns a top-level list for frontend code, use `JsonResponse(..., safe=False)` and keep the view response shape identical to the service output.
 
 ## Gotchas
 - `STATICFILES_DIRS` points at `BosWay/static/`; keep that directory present or Django will raise `staticfiles.W004` during `manage.py check` and tests.

@@ -84,6 +84,56 @@ class ProjectSetupTest(SimpleTestCase):
             reverse("admin:index")
 
 
+class LineNamesAPIViewTest(SimpleTestCase):
+    """Verify the subway line-name JSON endpoint."""
+
+    def test_line_names_endpoint_returns_json_array(self) -> None:
+        """Ensure the endpoint returns the service result as a JSON array."""
+        expected_line_names = [
+            "Blue Line",
+            "Orange Line",
+            "Red Line",
+        ]
+
+        with patch(
+            "subway.views.services.get_line_names",
+            return_value=expected_line_names,
+        ):
+            response = self.client.get(reverse("subway:line_names"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            expected_line_names,
+        )
+
+    def test_line_names_endpoint_calls_service_once(self) -> None:
+        """Ensure the endpoint delegates exactly once to the MBTA service."""
+        with patch(
+            "subway.views.services.get_line_names",
+            return_value=["Blue Line"],
+        ) as get_line_names_mock:
+            response = self.client.get(reverse("subway:line_names"))
+
+        self.assertEqual(response.status_code, 200)
+        get_line_names_mock.assert_called_once_with()
+
+    def test_line_names_endpoint_returns_empty_array(self) -> None:
+        """Ensure the endpoint preserves an empty service response."""
+        with patch(
+            "subway.views.services.get_line_names",
+            return_value=[],
+        ):
+            response = self.client.get(reverse("subway:line_names"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            [],
+        )
+
+
 class ServiceBootstrapTest(SimpleTestCase):
     """Verify shared MBTA service bootstrapping behavior."""
 

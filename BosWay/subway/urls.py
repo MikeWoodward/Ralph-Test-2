@@ -8,6 +8,11 @@ app_name = "subway"
 
 urlpatterns = [
     path(
+        "api/lines",
+        views.line_names,
+        name="line_names",
+    ),
+    path(
         "trains-alerts",
         views.trains_alerts,
         name="trains_alerts",
