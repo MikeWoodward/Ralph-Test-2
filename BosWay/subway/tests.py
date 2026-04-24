@@ -214,6 +214,18 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn(".trains-page__map {", stylesheet_text)
         self.assertIn("min-height: 70vh;", stylesheet_text)
 
+    def test_page_loads_the_trains_dropdown_script(self) -> None:
+        """Ensure the trains page includes its line-loading script."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+        script_path = finders.find("subway/js/trains_alerts.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(script_path)
+        self.assertContains(
+            response,
+            'src="/static/subway/js/trains_alerts.js"',
+        )
+
 
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""

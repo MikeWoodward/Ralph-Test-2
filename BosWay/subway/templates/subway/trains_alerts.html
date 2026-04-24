@@ -1,4 +1,5 @@
 {% extends "subway/base.html" %}
+{% load static %}
 
 {% block content %}
     <section class="trains-page">
@@ -38,3 +39,10 @@
         </section>
     </section>
 {% endblock content %}
+
+{% block page_scripts %}
+    <script
+        src="{% static 'subway/js/trains_alerts.js' %}"
+        defer
+    ></script>
+{% endblock page_scripts %}
