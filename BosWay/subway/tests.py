@@ -318,11 +318,14 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
     def test_trains_script_opens_station_prediction_popups(
         self,
     ) -> None:
-        """Ensure station markers fetch and render grouped predictions."""
+        """Ensure station popups stay visible, dismissible, and scrollable."""
         script_path = finders.find("subway/js/trains_alerts.js")
+        stylesheet_path = finders.find("subway/css/style.css")
 
         self.assertIsNotNone(script_path)
+        self.assertIsNotNone(stylesheet_path)
         script_text = Path(script_path).read_text(encoding="utf-8")
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
 
         self.assertIn(
             'const STATION_PREDICTIONS_SUFFIX = "/predictions";',
@@ -337,6 +340,21 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn("MAX_PREDICTIONS_PER_LINE = 4", script_text)
         self.assertIn("No subway predictions.", script_text)
         self.assertIn("marker.bindPopup(", script_text)
+        self.assertIn("keepInView: true", script_text)
+        self.assertIn("closeOnEscapeKey: true", script_text)
+        self.assertIn("closeOnClick: true", script_text)
+        self.assertIn('className: "trains-page__prediction-leaflet-popup"', script_text)
+        self.assertIn('marker.on("mouseout"', script_text)
+        self.assertIn(
+            'popupElement.addEventListener("mouseleave"',
+            script_text,
+        )
+        self.assertIn(
+            ".trains-page__prediction-leaflet-popup .leaflet-popup-content {",
+            stylesheet_text,
+        )
+        self.assertIn("max-height: min(18rem, 45dvh);", stylesheet_text)
+        self.assertIn("overflow-y: auto;", stylesheet_text)
 
 
 class LineNamesAPIViewTest(SimpleTestCase):

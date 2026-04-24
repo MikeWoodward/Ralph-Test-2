@@ -19,6 +19,9 @@ const LINE_WEIGHT = 4;
 const STATION_MARKER_RADIUS = 6;
 const STATION_MARKER_WEIGHT = 2;
 const MAX_PREDICTIONS_PER_LINE = 4;
+const POPUP_MAX_WIDTH = 320;
+const POPUP_CLOSE_DELAY_MS = 180;
+const POPUP_AUTO_PAN_PADDING = 24;
 
 const predictionTimeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
@@ -28,6 +31,7 @@ const predictionTimeFormatter = new Intl.DateTimeFormat(undefined, {
 let trainsMap = null;
 let selectedLineLayerGroup = null;
 let activeSelectionRequestId = 0;
+let activePopupCloseTimeoutId = null;
 
 const buildLineOption = (lineName) => {
     const lineOption = document.createElement("option");
@@ -316,6 +320,37 @@ const createPredictionPopupRoot = ({ stationName }) => {
     return popupRoot;
 };
 
+const cancelScheduledPopupClose = () => {
+    if (activePopupCloseTimeoutId !== null) {
+        window.clearTimeout(activePopupCloseTimeoutId);
+        activePopupCloseTimeoutId = null;
+    }
+};
+
+const schedulePopupClose = ({ marker }) => {
+    cancelScheduledPopupClose();
+    activePopupCloseTimeoutId = window.setTimeout(() => {
+        marker.closePopup();
+        activePopupCloseTimeoutId = null;
+    }, POPUP_CLOSE_DELAY_MS);
+};
+
+const getPredictionPopupOptions = () => ({
+    autoClose: true,
+    closeButton: true,
+    closeOnClick: true,
+    closeOnEscapeKey: true,
+    keepInView: true,
+    autoPan: true,
+    autoPanPadding: window.L.point(
+        POPUP_AUTO_PAN_PADDING,
+        POPUP_AUTO_PAN_PADDING,
+    ),
+    className: "trains-page__prediction-leaflet-popup",
+    maxHeight: Math.max(180, Math.floor(window.innerHeight * 0.45)),
+    maxWidth: POPUP_MAX_WIDTH,
+});
+
 const createPredictionGroup = ({ lineName, predictions }) => {
     const group = document.createElement("section");
     group.className = "trains-page__prediction-group";
@@ -382,6 +417,29 @@ const buildPredictionPopupContent = ({ stationName, predictions }) => {
     return popupRoot;
 };
 
+const attachPopupDismissHandlers = ({ marker }) => {
+    marker.on("mouseover", cancelScheduledPopupClose);
+    marker.on("mouseout", () => {
+        if (marker.isPopupOpen()) {
+            schedulePopupClose({ marker });
+        }
+    });
+    marker.on("popupopen", ({ popup }) => {
+        cancelScheduledPopupClose();
+        const popupElement = popup.getElement();
+
+        if (!(popupElement instanceof HTMLElement)) {
+            return;
+        }
+
+        popupElement.addEventListener("mouseenter", cancelScheduledPopupClose);
+        popupElement.addEventListener("mouseleave", () => {
+            schedulePopupClose({ marker });
+        });
+    });
+    marker.on("popupclose", cancelScheduledPopupClose);
+};
+
 const openStationPredictionsPopup = async ({ marker }) => {
     const stationId =
         typeof marker?.options?.stationId === "string"
@@ -414,6 +472,7 @@ const openStationPredictionsPopup = async ({ marker }) => {
             );
             return popupRoot;
         })(),
+        getPredictionPopupOptions(),
     );
     marker.openPopup();
 
@@ -455,6 +514,7 @@ const openStationPredictionsPopup = async ({ marker }) => {
 
 const attachStationPredictionHandlers = ({ stationLayers }) => {
     stationLayers.forEach((stationLayer) => {
+        attachPopupDismissHandlers({ marker: stationLayer });
         stationLayer.on("click", () => {
             void openStationPredictionsPopup({
                 marker: stationLayer,
