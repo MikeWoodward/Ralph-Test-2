@@ -252,8 +252,27 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn("const SUBWAY_SYSTEM_BOUNDS = [", script_text)
         self.assertIn('window.L.map(mapElement, {', script_text)
         self.assertIn("trainsMap.fitBounds(SUBWAY_SYSTEM_BOUNDS", script_text)
-        self.assertNotIn("window.L.polyline", script_text)
-        self.assertNotIn("window.L.circleMarker", script_text)
+
+    def test_trains_script_renders_only_the_selected_line_and_stations(
+        self,
+    ) -> None:
+        """Ensure the trains script redraws and fits the chosen line."""
+        script_path = finders.find("subway/js/trains_alerts.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn('lineSelect.addEventListener("change"', script_text)
+        self.assertIn("const LINE_DETAIL_ENDPOINT_BASE = ", script_text)
+        self.assertIn("encodeURIComponent(lineName)", script_text)
+        self.assertIn("selectedLineLayerGroup.remove()", script_text)
+        self.assertIn("window.L.polyline", script_text)
+        self.assertIn("window.L.circleMarker", script_text)
+        self.assertIn("window.L.featureGroup(renderedLayers)", script_text)
+        self.assertIn(
+            "trainsMap.fitBounds(selectedLineLayerGroup.getBounds()",
+            script_text,
+        )
 
 
 class LineNamesAPIViewTest(SimpleTestCase):

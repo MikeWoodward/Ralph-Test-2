@@ -20,6 +20,7 @@ python manage.py runserver
 - Page-specific frontend behavior should be loaded from each template's `page_scripts` block with a dedicated asset under `BosWay/subway/static/subway/js/` instead of inlining scripts into `base.html`.
 - When a page needs third-party frontend assets, add them with a page-specific `extra_head` block and/or that page's `page_scripts` block instead of loading them globally for the whole site.
 - When a page needs a full-width map layout, add a page-specific wrapper class in the template and keep the shared `page-content` shell generic instead of changing the centered card styles used by other pages.
+- For Leaflet views that redraw one selected route, keep the rendered polylines and station markers inside one `L.featureGroup`, remove that group before drawing the next selection, and call `fitBounds()` on the replacement group so the viewport follows the active route.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
