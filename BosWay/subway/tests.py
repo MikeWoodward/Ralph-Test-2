@@ -274,6 +274,31 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
             script_text,
         )
 
+    def test_trains_script_fetches_and_renders_scrollable_alerts(
+        self,
+    ) -> None:
+        """Ensure line selection also shows a scrollable alerts panel."""
+        script_path = finders.find("subway/js/trains_alerts.js")
+        stylesheet_path = finders.find("subway/css/style.css")
+
+        self.assertIsNotNone(script_path)
+        self.assertIsNotNone(stylesheet_path)
+
+        script_text = Path(script_path).read_text(encoding="utf-8")
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
+
+        self.assertIn("const LINE_ALERTS_SUFFIX = ", script_text)
+        self.assertIn(
+            "fetchLineAlerts({ lineName: selectedLineName })",
+            script_text,
+        )
+        self.assertIn("alertsPanel.hidden = false;", script_text)
+        self.assertIn("No alerts for", script_text)
+        self.assertIn("Unable to load alerts for", script_text)
+        self.assertIn("#alerts-content {", stylesheet_text)
+        self.assertIn("max-height: 16rem;", stylesheet_text)
+        self.assertIn("overflow-y: auto;", stylesheet_text)
+
 
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""

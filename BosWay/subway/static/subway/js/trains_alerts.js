@@ -2,6 +2,7 @@
 
 const LINE_NAMES_ENDPOINT = "/api/lines";
 const LINE_DETAIL_ENDPOINT_BASE = "/api/lines/";
+const LINE_ALERTS_SUFFIX = "/alerts";
 const TILE_LAYER_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_LAYER_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
@@ -18,6 +19,7 @@ const STATION_MARKER_WEIGHT = 2;
 
 let trainsMap = null;
 let selectedLineLayerGroup = null;
+let activeSelectionRequestId = 0;
 
 const buildLineOption = (lineName) => {
     const lineOption = document.createElement("option");
@@ -66,6 +68,9 @@ const reportSelectedLineError = (error) => {
 const getLineDetailEndpoint = ({ lineName }) =>
     `${LINE_DETAIL_ENDPOINT_BASE}${encodeURIComponent(lineName)}`;
 
+const getLineAlertsEndpoint = ({ lineName }) =>
+    `${getLineDetailEndpoint({ lineName })}${LINE_ALERTS_SUFFIX}`;
+
 const getLineColor = ({ color }) =>
     typeof color === "string" && color.trim().length > 0
         ? `#${color.trim()}`
@@ -85,6 +90,30 @@ const fetchLineDetail = async ({ lineName }) => {
     }
 
     return response.json();
+};
+
+const fetchLineAlerts = async ({ lineName }) => {
+    const response = await fetch(getLineAlertsEndpoint({ lineName }), {
+        headers: {
+            Accept: "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Unable to load subway line alerts (${response.status}).`,
+        );
+    }
+
+    const alerts = await response.json();
+
+    if (!Array.isArray(alerts)) {
+        throw new TypeError(
+            "Expected the line alerts endpoint to return an array.",
+        );
+    }
+
+    return alerts;
 };
 
 const removeSelectedLineLayer = () => {
@@ -153,15 +182,178 @@ const renderSelectedLine = ({ lineData }) => {
     }
 };
 
-const handleLineSelection = async ({ lineSelect }) => {
+const clearAlertsContent = ({ alertsContent }) => {
+    alertsContent.replaceChildren();
+};
+
+const showAlertsPanel = ({ alertsPanel }) => {
+    alertsPanel.hidden = false;
+};
+
+const createAlertsMessage = ({ className, text }) => {
+    const message = document.createElement("p");
+    message.className = className;
+    message.textContent = text;
+    return message;
+};
+
+const createSeverityBadge = ({ severity }) => {
+    if (!Number.isInteger(severity)) {
+        return null;
+    }
+
+    const badge = document.createElement("span");
+    badge.className = "trains-page__alert-severity";
+    badge.textContent = `Severity ${severity}`;
+    return badge;
+};
+
+const createAlertItem = ({ alert }) => {
+    const alertItem = document.createElement("article");
+    alertItem.className = "trains-page__alert-item";
+
+    const header = document.createElement("div");
+    header.className = "trains-page__alert-header";
+
+    const headline = document.createElement("h3");
+    headline.className = "trains-page__alert-headline";
+    headline.textContent = alert.headline;
+    header.append(headline);
+
+    const severityBadge = createSeverityBadge({ severity: alert.severity });
+
+    if (severityBadge) {
+        header.append(severityBadge);
+    }
+
+    alertItem.append(header);
+
+    if (typeof alert.description === "string" && alert.description.trim()) {
+        const description = document.createElement("p");
+        description.className = "trains-page__alert-description";
+        description.textContent = alert.description.trim();
+        alertItem.append(description);
+    }
+
+    return alertItem;
+};
+
+const renderAlertsLoadingState = ({ alertsPanel, alertsContent, lineName }) => {
+    showAlertsPanel({ alertsPanel });
+    clearAlertsContent({ alertsContent });
+    alertsContent.append(
+        createAlertsMessage({
+            className: "trains-page__alerts-status",
+            text: `Loading alerts for ${lineName}...`,
+        }),
+    );
+};
+
+const renderAlerts = ({ alertsPanel, alertsContent, alerts, lineName }) => {
+    showAlertsPanel({ alertsPanel });
+    clearAlertsContent({ alertsContent });
+
+    if (alerts.length === 0) {
+        alertsContent.append(
+            createAlertsMessage({
+                className: "trains-page__alerts-status",
+                text: `No alerts for ${lineName}.`,
+            }),
+        );
+        return;
+    }
+
+    const alertList = document.createElement("div");
+    alertList.className = "trains-page__alerts-list";
+
+    alerts.forEach((alert) => {
+        if (typeof alert?.headline !== "string" || !alert.headline.trim()) {
+            return;
+        }
+
+        alertList.append(
+            createAlertItem({
+                alert: {
+                    description: alert.description,
+                    headline: alert.headline.trim(),
+                    severity: alert.severity,
+                },
+            }),
+        );
+    });
+
+    if (alertList.childElementCount === 0) {
+        alertsContent.append(
+            createAlertsMessage({
+                className: "trains-page__alerts-status",
+                text: `No alerts for ${lineName}.`,
+            }),
+        );
+        return;
+    }
+
+    alertsContent.append(alertList);
+};
+
+const renderAlertsErrorState = ({ alertsPanel, alertsContent, lineName }) => {
+    showAlertsPanel({ alertsPanel });
+    clearAlertsContent({ alertsContent });
+    alertsContent.append(
+        createAlertsMessage({
+            className: "trains-page__alerts-status trains-page__alerts-status--error",
+            text: `Unable to load alerts for ${lineName}.`,
+        }),
+    );
+};
+
+const handleLineSelection = async ({
+    alertsContent,
+    alertsPanel,
+    lineSelect,
+}) => {
     const selectedLineName = lineSelect.value.trim();
 
     if (!selectedLineName) {
         return;
     }
 
-    const lineData = await fetchLineDetail({ lineName: selectedLineName });
-    renderSelectedLine({ lineData });
+    activeSelectionRequestId += 1;
+    const selectionRequestId = activeSelectionRequestId;
+    renderAlertsLoadingState({
+        alertsPanel,
+        alertsContent,
+        lineName: selectedLineName,
+    });
+
+    try {
+        const [lineData, alerts] = await Promise.all([
+            fetchLineDetail({ lineName: selectedLineName }),
+            fetchLineAlerts({ lineName: selectedLineName }),
+        ]);
+
+        if (selectionRequestId !== activeSelectionRequestId) {
+            return;
+        }
+
+        renderSelectedLine({ lineData });
+        renderAlerts({
+            alertsPanel,
+            alertsContent,
+            alerts,
+            lineName: selectedLineName,
+        });
+    } catch (error) {
+        if (selectionRequestId !== activeSelectionRequestId) {
+            return;
+        }
+
+        renderAlertsErrorState({
+            alertsPanel,
+            alertsContent,
+            lineName: selectedLineName,
+        });
+        throw error;
+    }
 };
 
 const populateLineSelect = async ({ lineSelect }) => {
@@ -227,9 +419,19 @@ const initializeMap = ({ mapElement }) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     const lineSelect = document.querySelector("#line-select");
+    const alertsPanel = document.querySelector("#alerts-panel");
+    const alertsContent = document.querySelector("#alerts-content");
     const mapElement = document.querySelector("#trains-map");
 
     if (!(lineSelect instanceof HTMLSelectElement)) {
+        return;
+    }
+
+    if (!(alertsPanel instanceof HTMLElement)) {
+        return;
+    }
+
+    if (!(alertsContent instanceof HTMLDivElement)) {
         return;
     }
 
@@ -244,7 +446,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     lineSelect.addEventListener("change", () => {
-        void handleLineSelection({ lineSelect }).catch(reportSelectedLineError);
+        void handleLineSelection({
+            alertsContent,
+            alertsPanel,
+            lineSelect,
+        }).catch(reportSelectedLineError);
     });
 
     void populateLineSelect({ lineSelect }).catch(reportDropdownLoadError);

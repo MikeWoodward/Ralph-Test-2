@@ -154,6 +154,59 @@ h1 {
     font-size: 1.1rem;
 }
 
+#alerts-content {
+    max-height: 16rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.trains-page__alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.trains-page__alert-item {
+    border: 1px solid #d6e0eb;
+    border-radius: 0.85rem;
+    padding: 1rem;
+    background: #f8fbfe;
+}
+
+.trains-page__alert-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.trains-page__alert-headline {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.trains-page__alert-severity {
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    background: #d8e9f9;
+    color: #003e73;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.trains-page__alert-description,
+.trains-page__alerts-status {
+    margin: 0.75rem 0 0;
+    color: #284763;
+    line-height: 1.6;
+}
+
+.trains-page__alerts-status--error {
+    color: #8c1d18;
+}
+
 .trains-page__map-shell {
     overflow: hidden;
 }
