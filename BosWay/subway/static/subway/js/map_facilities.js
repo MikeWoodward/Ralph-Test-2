@@ -2,6 +2,7 @@
 
 const LINE_NAMES_ENDPOINT = "/api/lines";
 const LINE_DETAIL_ENDPOINT_BASE = "/api/lines/";
+const STATION_ENDPOINT_BASE = "/api/stations/";
 const TILE_LAYER_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_LAYER_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
@@ -15,9 +16,14 @@ const DEFAULT_LINE_COLOR = "#1f2937";
 const LINE_WEIGHT = 4;
 const STATION_MARKER_RADIUS = 6;
 const STATION_MARKER_WEIGHT = 2;
+const POPUP_MAX_WIDTH = 320;
+const POPUP_CLOSE_DELAY_MS = 180;
+const POPUP_AUTO_PAN_PADDING = 24;
 
 let mapFacilitiesMap = null;
 let networkLayerGroup = null;
+let lineColorByName = new Map();
+let activePopupCloseTimeoutId = null;
 
 const reportMapFacilitiesError = ({ message, error }) => {
     const stackFrame =
@@ -30,6 +36,9 @@ const reportMapFacilitiesError = ({ message, error }) => {
 
 const getLineDetailEndpoint = ({ lineName }) =>
     `${LINE_DETAIL_ENDPOINT_BASE}${encodeURIComponent(lineName)}`;
+
+const getStationDetailEndpoint = ({ stationId }) =>
+    `${STATION_ENDPOINT_BASE}${encodeURIComponent(stationId)}`;
 
 const getLineColor = ({ color }) =>
     typeof color === "string" && color.trim().length > 0
@@ -75,6 +84,34 @@ const fetchLineDetail = async ({ lineName }) => {
     }
 
     return response.json();
+};
+
+const fetchStationDetail = async ({ stationId }) => {
+    const response = await fetch(getStationDetailEndpoint({ stationId }), {
+        headers: {
+            Accept: "application/json",
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Unable to load station details (${response.status}).`,
+        );
+    }
+
+    const stationDetail = await response.json();
+
+    if (
+        typeof stationDetail !== "object" ||
+        stationDetail === null ||
+        Array.isArray(stationDetail)
+    ) {
+        throw new TypeError(
+            "Expected the station detail endpoint to return an object.",
+        );
+    }
+
+    return stationDetail;
 };
 
 const buildShapeLayers = ({ lineData, lineColor }) =>
@@ -139,9 +176,30 @@ const buildStationLayers = ({ lineDetails }) =>
                     weight: STATION_MARKER_WEIGHT,
                     fillColor: "#ffffff",
                     fillOpacity: 1,
+                    stationId: station.station_id,
+                    stationName:
+                        typeof station.name === "string" && station.name.trim()
+                            ? station.name.trim()
+                            : "Selected station",
                 },
             ),
     );
+
+const buildLineColorByName = ({ lineDetails }) =>
+    lineDetails.reduce((lineColorMap, lineData) => {
+        const lineName =
+            typeof lineData?.name === "string" ? lineData.name.trim() : "";
+
+        if (!lineName) {
+            return lineColorMap;
+        }
+
+        lineColorMap.set(
+            lineName,
+            getLineColor({ color: lineData?.color }),
+        );
+        return lineColorMap;
+    }, new Map());
 
 const removeNetworkLayerGroup = () => {
     if (networkLayerGroup) {
@@ -166,6 +224,272 @@ const buildLegendEntries = ({ lineDetails }) =>
 
         return legendEntries;
     }, []);
+
+const createStationPopupRoot = ({ stationName }) => {
+    const popupRoot = document.createElement("section");
+    popupRoot.className = "map-facilities-page__station-popup";
+
+    const title = document.createElement("h3");
+    title.className = "map-facilities-page__station-popup-title";
+    title.textContent = stationName;
+    popupRoot.append(title);
+
+    return popupRoot;
+};
+
+const createStationPopupMessage = ({ className, text }) => {
+    const message = document.createElement("p");
+    message.className = className;
+    message.textContent = text;
+    return message;
+};
+
+const createStationPopupSection = ({ titleText }) => {
+    const section = document.createElement("section");
+    section.className = "map-facilities-page__station-popup-section";
+
+    const title = document.createElement("h4");
+    title.className = "map-facilities-page__station-popup-section-title";
+    title.textContent = titleText;
+
+    section.append(title);
+    return section;
+};
+
+const createServedLinesSection = ({ linesServed }) => {
+    const linesSection = createStationPopupSection({
+        titleText: "Lines served",
+    });
+
+    if (linesServed.length === 0) {
+        linesSection.append(
+            createStationPopupMessage({
+                className: "map-facilities-page__station-popup-status",
+                text: "No subway lines listed for this station.",
+            }),
+        );
+        return linesSection;
+    }
+
+    const linesList = document.createElement("div");
+    linesList.className = "map-facilities-page__station-popup-lines";
+
+    linesServed.forEach((lineName) => {
+        const lineBadge = document.createElement("span");
+        lineBadge.className = "map-facilities-page__station-popup-line-badge";
+        lineBadge.style.backgroundColor =
+            lineColorByName.get(lineName) ?? DEFAULT_LINE_COLOR;
+        lineBadge.textContent = lineName;
+        linesList.append(lineBadge);
+    });
+
+    linesSection.append(linesList);
+    return linesSection;
+};
+
+const createFacilitiesSection = ({ facilities }) => {
+    const facilitiesSection = createStationPopupSection({
+        titleText: "Facilities",
+    });
+
+    if (facilities.length === 0) {
+        facilitiesSection.append(
+            createStationPopupMessage({
+                className: "map-facilities-page__station-popup-status",
+                text: "No facilities listed for this station.",
+            }),
+        );
+        return facilitiesSection;
+    }
+
+    const facilitiesList = document.createElement("ul");
+    facilitiesList.className = "map-facilities-page__station-popup-facilities";
+
+    facilities.forEach((facilityLabel) => {
+        const facilityItem = document.createElement("li");
+        facilityItem.textContent = facilityLabel;
+        facilitiesList.append(facilityItem);
+    });
+
+    facilitiesSection.append(facilitiesList);
+    return facilitiesSection;
+};
+
+const buildStationPopupContent = ({ stationDetail, fallbackStationName }) => {
+    const stationName =
+        typeof stationDetail?.name === "string" && stationDetail.name.trim()
+            ? stationDetail.name.trim()
+            : fallbackStationName;
+    const linesServed = Array.isArray(stationDetail?.lines_served)
+        ? stationDetail.lines_served.filter(
+              (lineName) =>
+                  typeof lineName === "string" && lineName.trim().length > 0,
+          )
+        : [];
+    const facilities = Array.isArray(stationDetail?.facilities)
+        ? stationDetail.facilities.filter(
+              (facilityLabel) =>
+                  typeof facilityLabel === "string" &&
+                  facilityLabel.trim().length > 0,
+          )
+        : [];
+    const popupRoot = createStationPopupRoot({ stationName });
+
+    popupRoot.append(
+        createServedLinesSection({ linesServed }),
+        createFacilitiesSection({ facilities }),
+    );
+
+    return popupRoot;
+};
+
+const cancelScheduledPopupClose = () => {
+    if (activePopupCloseTimeoutId !== null) {
+        window.clearTimeout(activePopupCloseTimeoutId);
+        activePopupCloseTimeoutId = null;
+    }
+};
+
+const schedulePopupClose = ({ marker }) => {
+    cancelScheduledPopupClose();
+    activePopupCloseTimeoutId = window.setTimeout(() => {
+        marker.closePopup();
+        activePopupCloseTimeoutId = null;
+    }, POPUP_CLOSE_DELAY_MS);
+};
+
+const getStationPopupOptions = () => ({
+    autoClose: true,
+    closeButton: true,
+    closeOnClick: true,
+    closeOnEscapeKey: true,
+    keepInView: true,
+    autoPan: true,
+    autoPanPadding: window.L.point(
+        POPUP_AUTO_PAN_PADDING,
+        POPUP_AUTO_PAN_PADDING,
+    ),
+    className: "map-facilities-page__station-leaflet-popup",
+    maxHeight: Math.max(180, Math.floor(window.innerHeight * 0.45)),
+    maxWidth: POPUP_MAX_WIDTH,
+});
+
+const attachPopupDismissHandlers = ({ marker }) => {
+    marker.on("mouseover", cancelScheduledPopupClose);
+    marker.on("mouseout", () => {
+        if (marker.isPopupOpen()) {
+            schedulePopupClose({ marker });
+        }
+    });
+    marker.on("popupopen", ({ popup }) => {
+        cancelScheduledPopupClose();
+        const popupElement = popup.getElement();
+
+        if (!(popupElement instanceof HTMLElement)) {
+            return;
+        }
+
+        popupElement.addEventListener("mouseenter", cancelScheduledPopupClose);
+        popupElement.addEventListener("mouseleave", () => {
+            schedulePopupClose({ marker });
+        });
+    });
+    marker.on("popupclose", cancelScheduledPopupClose);
+};
+
+const openStationDetailPopup = async ({ marker }) => {
+    const stationId =
+        typeof marker?.options?.stationId === "string"
+            ? marker.options.stationId.trim()
+            : "";
+    const stationName =
+        typeof marker?.options?.stationName === "string" &&
+        marker.options.stationName.trim()
+            ? marker.options.stationName.trim()
+            : "Selected station";
+
+    if (!stationId) {
+        return;
+    }
+
+    const nextRequestId = Number.isInteger(marker.options.stationDetailRequestId)
+        ? marker.options.stationDetailRequestId + 1
+        : 1;
+
+    marker.options.stationDetailRequestId = nextRequestId;
+    marker.bindPopup(
+        (() => {
+            const popupRoot = createStationPopupRoot({ stationName });
+            popupRoot.append(
+                createStationPopupMessage({
+                    className: "map-facilities-page__station-popup-status",
+                    text: "Loading station facilities...",
+                }),
+            );
+            return popupRoot;
+        })(),
+        getStationPopupOptions(),
+    );
+    marker.openPopup();
+
+    try {
+        const stationDetail = await fetchStationDetail({ stationId });
+
+        if (marker.options.stationDetailRequestId !== nextRequestId) {
+            return;
+        }
+
+        marker.setPopupContent(
+            buildStationPopupContent({
+                stationDetail,
+                fallbackStationName: stationName,
+            }),
+        );
+    } catch (error) {
+        if (marker.options.stationDetailRequestId !== nextRequestId) {
+            return;
+        }
+
+        marker.setPopupContent(
+            (() => {
+                const popupRoot = createStationPopupRoot({ stationName });
+                popupRoot.append(
+                    createStationPopupMessage({
+                        className:
+                            "map-facilities-page__station-popup-status " +
+                            "map-facilities-page__station-popup-status--error",
+                        text: "Unable to load station facilities.",
+                    }),
+                );
+                return popupRoot;
+            })(),
+        );
+        reportMapFacilitiesError({
+            message: "Unable to load station facilities.",
+            error,
+        });
+    }
+};
+
+const attachStationDetailHandlers = ({ stationLayers }) => {
+    stationLayers.forEach((stationLayer) => {
+        attachPopupDismissHandlers({ marker: stationLayer });
+        stationLayer.on("click", () => {
+            if (!stationLayer.isPopupOpen()) {
+                void openStationDetailPopup({
+                    marker: stationLayer,
+                });
+            }
+        });
+        stationLayer.on("mouseover", () => {
+            if (!stationLayer.isPopupOpen()) {
+                void openStationDetailPopup({
+                    marker: stationLayer,
+                });
+            }
+        });
+    });
+};
 
 const renderLegend = ({ lineDetails }) => {
     const legendItemsElement = document.querySelector(
@@ -201,12 +525,15 @@ const renderFullNetwork = ({ lineDetails }) => {
         return;
     }
 
+    lineColorByName = buildLineColorByName({ lineDetails });
+    const stationLayers = buildStationLayers({ lineDetails });
+    attachStationDetailHandlers({ stationLayers });
     const renderedLayers = lineDetails.flatMap((lineData) => {
         const lineColor = getLineColor({ color: lineData?.color });
         return buildShapeLayers({ lineData, lineColor });
     });
 
-    renderedLayers.push(...buildStationLayers({ lineDetails }));
+    renderedLayers.push(...stationLayers);
 
     removeNetworkLayerGroup();
     networkLayerGroup = window.L.featureGroup(renderedLayers).addTo(

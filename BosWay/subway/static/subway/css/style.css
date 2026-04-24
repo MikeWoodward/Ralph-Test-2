@@ -379,6 +379,73 @@ h1 {
     line-height: 1.35;
 }
 
+.map-facilities-page__station-leaflet-popup .leaflet-popup-content {
+    width: min(20rem, 70vw);
+    max-height: min(18rem, 45dvh);
+    margin: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.map-facilities-page__station-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.map-facilities-page__station-popup-title,
+.map-facilities-page__station-popup-section-title {
+    margin: 0;
+}
+
+.map-facilities-page__station-popup-title {
+    font-size: 1.1rem;
+}
+
+.map-facilities-page__station-popup-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.map-facilities-page__station-popup-section-title {
+    font-size: 0.95rem;
+    color: #204060;
+}
+
+.map-facilities-page__station-popup-lines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.map-facilities-page__station-popup-line-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.map-facilities-page__station-popup-facilities {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #284763;
+    line-height: 1.5;
+}
+
+.map-facilities-page__station-popup-status {
+    margin: 0;
+    color: #284763;
+    line-height: 1.5;
+}
+
+.map-facilities-page__station-popup-status--error {
+    color: #8c1d18;
+}
+
 @media (max-width: 720px) {
     .site-header__inner {
         padding: 1rem 1.25rem;

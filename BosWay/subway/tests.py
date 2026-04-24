@@ -232,6 +232,50 @@ class MapFacilitiesPageTest(SimpleTestCase):
         self.assertIn("legendSwatch.style.backgroundColor", script_text)
         self.assertIn("renderLegend({ lineDetails: validLineDetails });", script_text)
 
+    def test_map_facilities_script_opens_station_detail_popups(
+        self,
+    ) -> None:
+        """Ensure station markers fetch and render facilities popups."""
+        script_path = finders.find("subway/js/map_facilities.js")
+        stylesheet_path = finders.find("subway/css/style.css")
+
+        self.assertIsNotNone(script_path)
+        self.assertIsNotNone(stylesheet_path)
+
+        script_text = Path(script_path).read_text(encoding="utf-8")
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
+
+        self.assertIn('const STATION_ENDPOINT_BASE = "/api/stations/";', script_text)
+        self.assertIn("const fetchStationDetail = async", script_text)
+        self.assertIn("stationId: station.station_id", script_text)
+        self.assertIn("stationName:", script_text)
+        self.assertIn("const createServedLinesSection = ", script_text)
+        self.assertIn("const createFacilitiesSection = ", script_text)
+        self.assertIn("stationDetail.lines_served", script_text)
+        self.assertIn("stationDetail.facilities", script_text)
+        self.assertIn(
+            'className: "map-facilities-page__station-leaflet-popup"',
+            script_text,
+        )
+        self.assertIn("keepInView: true", script_text)
+        self.assertIn('stationLayer.on("click"', script_text)
+        self.assertIn('stationLayer.on("mouseover"', script_text)
+        self.assertIn("marker.bindPopup(", script_text)
+        self.assertIn("fetchStationDetail({ stationId })", script_text)
+        self.assertIn(
+            ".map-facilities-page__station-leaflet-popup "
+            ".leaflet-popup-content {",
+            stylesheet_text,
+        )
+        self.assertIn(
+            ".map-facilities-page__station-popup-line-badge {",
+            stylesheet_text,
+        )
+        self.assertIn(
+            ".map-facilities-page__station-popup-facilities {",
+            stylesheet_text,
+        )
+
 
 class TrainsAlertsLayoutTest(SimpleTestCase):
     """Verify the initial Trains and Alerts page layout."""
