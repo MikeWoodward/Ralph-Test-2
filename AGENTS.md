@@ -22,11 +22,13 @@ python manage.py runserver
 - Keep Pydantic response models in `BosWay/subway/schemas.py`, and normalize raw `MBTA_class.py` payloads inside `BosWay/subway/services.py` before views consume them.
 - Startup MBTA initialization belongs in `BosWay/subway/apps.py` via `SubwayConfig.ready()` and must stay idempotent because Django can call `ready()` more than once in tests.
 - When a JSON endpoint returns a top-level list for frontend code, use `JsonResponse(..., safe=False)` and keep the view response shape identical to the service output.
+- For schema-backed detail endpoints such as `api/lines/<str:line_name>`, return `JsonResponse(schema.model_dump(mode="json"))` so nested tuples serialize cleanly to JSON arrays.
 
 ## Gotchas
 - `STATICFILES_DIRS` points at `BosWay/static/`; keep that directory present or Django will raise `staticfiles.W004` during `manage.py check` and tests.
 - The previous root-level Django files are no longer the active app location; new implementation work should happen inside `BosWay/`.
 - `DATABASES = {}` is exposed by Django as the dummy backend during runtime/tests, so assertions should check for `django.db.backends.dummy` rather than expecting a literal empty dict.
+- For JSON API views, return short JSON `404`/`500` responses instead of falling back to Django's default HTML error pages, and log the failing line number when catching unexpected exceptions.
 
 ## Dependencies
 - The Django project depends on the repo-level virtual environment at `.venv/`.

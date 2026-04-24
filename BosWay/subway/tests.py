@@ -134,6 +134,123 @@ class LineNamesAPIViewTest(SimpleTestCase):
         )
 
 
+class LineDetailAPIViewTest(SimpleTestCase):
+    """Verify the single-line geometry JSON endpoint."""
+
+    def test_line_detail_returns_validated_line_payload(self) -> None:
+        """Ensure the endpoint exposes schema-backed line JSON."""
+        line_schema = LineSchema(
+            name="Red Line",
+            color="DA291C",
+            shapes=[[(42.395428, -71.142483), (42.365577, -71.103419)]],
+            stations=[
+                StationSummarySchema(
+                    station_id="place-alfcl",
+                    name="Alewife",
+                    latitude=42.395428,
+                    longitude=-71.142483,
+                ),
+            ],
+        )
+
+        with patch(
+            "subway.views.services.get_line",
+            return_value=line_schema,
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:line_detail",
+                    kwargs={"line_name": "Red Line"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {
+                "name": "Red Line",
+                "color": "DA291C",
+                "shapes": [
+                    [
+                        [42.395428, -71.142483],
+                        [42.365577, -71.103419],
+                    ],
+                ],
+                "stations": [
+                    {
+                        "station_id": "place-alfcl",
+                        "name": "Alewife",
+                        "latitude": 42.395428,
+                        "longitude": -71.142483,
+                        "address": None,
+                    },
+                ],
+            },
+        )
+
+    def test_line_detail_passes_the_requested_line_name(self) -> None:
+        """Ensure the endpoint delegates with the URL line name."""
+        line_schema = LineSchema(
+            name="Blue Line",
+            color="003DA5",
+            shapes=[],
+            stations=[],
+        )
+
+        with patch(
+            "subway.views.services.get_line",
+            return_value=line_schema,
+        ) as get_line_mock:
+            response = self.client.get(
+                reverse(
+                    "subway:line_detail",
+                    kwargs={"line_name": "Blue Line"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        get_line_mock.assert_called_once_with(line_name="Blue Line")
+
+    def test_line_detail_returns_404_for_unknown_line(self) -> None:
+        """Ensure the endpoint reports missing lines clearly."""
+        with patch(
+            "subway.views.services.get_line",
+            return_value=None,
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:line_detail",
+                    kwargs={"line_name": "Silver Line"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Line not found."},
+        )
+
+    def test_line_detail_returns_500_when_service_errors(self) -> None:
+        """Ensure unexpected service failures become JSON 500 responses."""
+        with patch(
+            "subway.views.services.get_line",
+            side_effect=RuntimeError("mbta unavailable"),
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:line_detail",
+                    kwargs={"line_name": "Red Line"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Unable to load line details."},
+        )
+
+
 class ServiceBootstrapTest(SimpleTestCase):
     """Verify shared MBTA service bootstrapping behavior."""
 

@@ -13,6 +13,11 @@ urlpatterns = [
         name="line_names",
     ),
     path(
+        "api/lines/<str:line_name>",
+        views.line_detail,
+        name="line_detail",
+    ),
+    path(
         "trains-alerts",
         views.trains_alerts,
         name="trains_alerts",
