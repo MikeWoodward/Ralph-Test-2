@@ -101,7 +101,8 @@ h1 {
     line-height: 1.6;
 }
 
-.trains-page {
+.trains-page,
+.map-facilities-page {
     width: min(100%, 72rem);
     min-height: 100%;
     display: flex;
@@ -111,7 +112,8 @@ h1 {
 
 .trains-page__controls,
 .trains-page__alerts,
-.trains-page__map-shell {
+.trains-page__map-shell,
+.map-facilities-page__map-shell {
     border-radius: 1rem;
     background: #ffffff;
     box-shadow: 0 18px 48px rgba(16, 35, 58, 0.12);
@@ -215,8 +217,8 @@ h1 {
     padding: 1.5rem 1.5rem 0;
 }
 
-.trains-page__map {
-    min-height: 70vh;
+.trains-page__map,
+.map-facilities-page__map {
     margin: 1.25rem;
     border-radius: 0.9rem;
     background:
@@ -225,7 +227,12 @@ h1 {
     border: 1px solid #c7d8e6;
 }
 
-.trains-page__prediction-leaflet-popup .leaflet-popup-content {
+.trains-page__map {
+    min-height: 70vh;
+}
+
+.trains-page__prediction-leaflet-popup .leaflet-popup-content,
+.map-facilities-page__station-leaflet-popup .leaflet-popup-content {
     width: min(20rem, 70vw);
     max-height: min(18rem, 45dvh);
     margin: 1rem;
@@ -295,14 +302,6 @@ h1 {
     color: #8c1d18;
 }
 
-.map-facilities-page {
-    width: min(100%, 72rem);
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
 .map-facilities-page__intro,
 .map-facilities-page__map-shell {
     width: 100%;
@@ -311,19 +310,10 @@ h1 {
 .map-facilities-page__map-shell {
     position: relative;
     overflow: hidden;
-    border-radius: 1rem;
-    background: #ffffff;
-    box-shadow: 0 18px 48px rgba(16, 35, 58, 0.12);
 }
 
 .map-facilities-page__map {
     min-height: 75vh;
-    margin: 1.25rem;
-    border-radius: 0.9rem;
-    background:
-        linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
-        linear-gradient(135deg, #dcecff 0%, #eef5fb 52%, #d9ede2 100%);
-    border: 1px solid #c7d8e6;
 }
 
 .map-facilities-page__legend {
@@ -377,14 +367,6 @@ h1 {
 
 .map-facilities-page__legend-label {
     line-height: 1.35;
-}
-
-.map-facilities-page__station-leaflet-popup .leaflet-popup-content {
-    width: min(20rem, 70vw);
-    max-height: min(18rem, 45dvh);
-    margin: 1rem;
-    overflow-x: hidden;
-    overflow-y: auto;
 }
 
 .map-facilities-page__station-popup {

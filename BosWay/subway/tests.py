@@ -305,6 +305,63 @@ class MapFacilitiesPageTest(SimpleTestCase):
         )
 
 
+class SharedMapExperienceTest(SimpleTestCase):
+    """Verify the shared map controls and styling contract."""
+
+    def test_map_pages_share_zoom_controls_popup_bounds_and_shell_styles(
+        self,
+    ) -> None:
+        """Ensure both Leaflet pages keep one shared interaction contract."""
+        trains_script_path = finders.find("subway/js/trains_alerts.js")
+        map_facilities_script_path = finders.find("subway/js/map_facilities.js")
+        stylesheet_path = finders.find("subway/css/style.css")
+
+        self.assertIsNotNone(trains_script_path)
+        self.assertIsNotNone(map_facilities_script_path)
+        self.assertIsNotNone(stylesheet_path)
+
+        trains_script_text = Path(trains_script_path).read_text(encoding="utf-8")
+        map_facilities_script_text = Path(map_facilities_script_path).read_text(
+            encoding="utf-8",
+        )
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
+
+        self.assertIn("zoomControl: true", trains_script_text)
+        self.assertIn("zoomControl: true", map_facilities_script_text)
+        self.assertIn("keepInView: true", trains_script_text)
+        self.assertIn("keepInView: true", map_facilities_script_text)
+        self.assertIn("closeOnEscapeKey: true", trains_script_text)
+        self.assertIn("closeOnEscapeKey: true", map_facilities_script_text)
+        self.assertIn("closeOnClick: true", trains_script_text)
+        self.assertIn("closeOnClick: true", map_facilities_script_text)
+        self.assertIn("autoPanPadding: window.L.point(", trains_script_text)
+        self.assertIn(
+            "autoPanPadding: window.L.point(",
+            map_facilities_script_text,
+        )
+        self.assertIn(
+            ".trains-page,\n.map-facilities-page {",
+            stylesheet_text,
+        )
+        self.assertIn(
+            ".trains-page__controls,\n"
+            ".trains-page__alerts,\n"
+            ".trains-page__map-shell,\n"
+            ".map-facilities-page__map-shell {",
+            stylesheet_text,
+        )
+        self.assertIn(
+            ".trains-page__map,\n.map-facilities-page__map {",
+            stylesheet_text,
+        )
+        self.assertIn(
+            ".trains-page__prediction-leaflet-popup .leaflet-popup-content,\n"
+            ".map-facilities-page__station-leaflet-popup "
+            ".leaflet-popup-content {",
+            stylesheet_text,
+        )
+
+
 class TrainsAlertsLayoutTest(SimpleTestCase):
     """Verify the initial Trains and Alerts page layout."""
 
@@ -508,7 +565,7 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
             script_text,
         )
         self.assertIn(
-            ".trains-page__prediction-leaflet-popup .leaflet-popup-content {",
+            ".trains-page__prediction-leaflet-popup .leaflet-popup-content,",
             stylesheet_text,
         )
         self.assertIn("max-height: min(18rem, 45dvh);", stylesheet_text)

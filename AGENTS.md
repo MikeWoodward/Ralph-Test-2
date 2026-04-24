@@ -29,6 +29,7 @@ python manage.py runserver
 - For Trains & Alerts station prediction popups, store `stationId` and `stationName` on each Leaflet station marker, fetch `/api/stations/<id>/predictions` on marker click, and group the client-side results by line while capping each group at four rows.
 - For Trains & Alerts station prediction popups, bind the Leaflet popup with explicit `keepInView`, `closeOnEscapeKey`, `closeOnClick`, `maxHeight`, and popup `className` options, then coordinate marker/popup mouseleave handling with a short close timer so the popup stays usable while the pointer moves from the marker into the popup.
 - For Leaflet pages that should share MBTA route/station visuals, keep the common stroke and station-ring options in one shared asset such as `subway/static/subway/js/map_styles.js`, and load it before each page-specific map script so both pages stay visually in sync.
+- For Leaflet pages that should share the same map-shell or popup boundary styling, define the shared selectors once in `subway/static/subway/css/style.css` and keep the page-specific classes only for content unique to one page.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
