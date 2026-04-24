@@ -35,6 +35,62 @@ def _log_view_exception(
     )
 
 
+def _validate_line_name_request(
+    *,
+    line_name: str,
+) -> JsonResponse | None:
+    """Validate a public subway line-name request parameter.
+
+    Args:
+        line_name: The subway line display name from the URL.
+
+    Returns:
+        A JSON error response for invalid input, or `None` when valid.
+    """
+    if not services.is_public_line_name_format_valid(line_name=line_name):
+        return JsonResponse(
+            {"error": "Invalid line name."},
+            status=400,
+        )
+
+    if not services.line_exists(line_name=line_name):
+        return JsonResponse(
+            {"error": "Line not found."},
+            status=404,
+        )
+
+    return None
+
+
+def _validate_station_id_request(
+    *,
+    station_id: str,
+) -> JsonResponse | None:
+    """Validate a public station-id request parameter.
+
+    Args:
+        station_id: The MBTA station identifier from the URL.
+
+    Returns:
+        A JSON error response for invalid input, or `None` when valid.
+    """
+    if not services.is_public_station_id_format_valid(
+        station_id=station_id,
+    ):
+        return JsonResponse(
+            {"error": "Invalid station ID."},
+            status=400,
+        )
+
+    if not services.station_exists(station_id=station_id):
+        return JsonResponse(
+            {"error": "Station not found."},
+            status=404,
+        )
+
+    return None
+
+
 def trains_alerts(
     request: HttpRequest,
 ) -> HttpResponse:
@@ -88,6 +144,13 @@ def line_detail(
     """
     _ = request
     try:
+        if (
+            validation_response := _validate_line_name_request(
+                line_name=line_name,
+            )
+        ) is not None:
+            return validation_response
+
         line = services.get_line(line_name=line_name)
     except Exception as error:  # pragma: no cover - exercised via tests
         _log_view_exception(exception=error)
@@ -122,12 +185,12 @@ def line_alerts(
     """
     _ = request
     try:
-        line = services.get_line(line_name=line_name)
-        if line is None:
-            return JsonResponse(
-                {"error": "Line not found."},
-                status=404,
+        if (
+            validation_response := _validate_line_name_request(
+                line_name=line_name,
             )
+        ) is not None:
+            return validation_response
 
         alerts = services.get_line_alerts(line_name=line_name)
     except Exception as error:  # pragma: no cover - exercised via tests
@@ -161,6 +224,13 @@ def station_detail(
     """
     _ = request
     try:
+        if (
+            validation_response := _validate_station_id_request(
+                station_id=station_id,
+            )
+        ) is not None:
+            return validation_response
+
         station = services.get_station(station_id=station_id)
     except Exception as error:  # pragma: no cover - exercised via tests
         _log_view_exception(exception=error)
@@ -195,12 +265,12 @@ def station_predictions(
     """
     _ = request
     try:
-        station = services.get_station(station_id=station_id)
-        if station is None:
-            return JsonResponse(
-                {"error": "Station not found."},
-                status=404,
+        if (
+            validation_response := _validate_station_id_request(
+                station_id=station_id,
             )
+        ) is not None:
+            return validation_response
 
         predictions = services.get_predictions(station_id=station_id)
     except Exception as error:  # pragma: no cover - exercised via tests

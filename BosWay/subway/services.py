@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import linecache
 import logging
+import re
 from pathlib import Path
 from threading import Lock
 from types import ModuleType
@@ -20,6 +21,14 @@ from .schemas import StationDetailSchema
 from .schemas import StationSummarySchema
 
 LOGGER = logging.getLogger(__name__)
+_PUBLIC_LINE_NAME_PATTERN = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9 &'()/.-]{0,63}$",
+    flags=re.ASCII,
+)
+_PUBLIC_STATION_ID_PATTERN = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+    flags=re.ASCII,
+)
 
 _MBTA_CLASS: type[Any] | None = None
 _MBTA_SERVICE: Any | None = None
@@ -262,6 +271,119 @@ def _get_lines_served(
             if line_name
         ],
     )
+
+
+def _known_line_names(
+    *,
+    mbta_service: Any,
+) -> set[str]:
+    """Return the initialized allowlist of subway line names.
+
+    Args:
+        mbta_service: The initialized shared MBTA client.
+
+    Returns:
+        A set of known subway line display names.
+    """
+    line_names_from_cache = {
+        str(line.get("name") or "").strip()
+        for line in getattr(mbta_service, "lines", [])
+        if str(line.get("name") or "").strip()
+    }
+    if line_names_from_cache:
+        return line_names_from_cache
+
+    return {
+        str(line_name).strip()
+        for line_name in mbta_service.get_line_names()
+        if str(line_name).strip()
+    }
+
+
+def _known_station_ids(
+    *,
+    mbta_service: Any,
+) -> set[str]:
+    """Return the initialized allowlist of subway station identifiers.
+
+    Args:
+        mbta_service: The initialized shared MBTA client.
+
+    Returns:
+        A set of known subway station identifiers.
+    """
+    return {
+        station_id
+        for line in getattr(mbta_service, "lines", [])
+        for station_data in line.get("stations", [])
+        if (
+            station_id := _station_identifier(
+                station_data=station_data,
+            ).strip()
+        )
+    }
+
+
+def is_public_line_name_format_valid(
+    *,
+    line_name: str,
+) -> bool:
+    """Return whether a public line-name input is well formed.
+
+    Args:
+        line_name: The public line-name value from the request path.
+
+    Returns:
+        `True` when the value matches the accepted path-input format.
+    """
+    return bool(_PUBLIC_LINE_NAME_PATTERN.fullmatch(line_name))
+
+
+def is_public_station_id_format_valid(
+    *,
+    station_id: str,
+) -> bool:
+    """Return whether a public station-id input is well formed.
+
+    Args:
+        station_id: The public station identifier from the request path.
+
+    Returns:
+        `True` when the value matches the accepted path-input format.
+    """
+    return bool(_PUBLIC_STATION_ID_PATTERN.fullmatch(station_id))
+
+
+def line_exists(
+    *,
+    line_name: str,
+) -> bool:
+    """Return whether a validated public line name is known to the app.
+
+    Args:
+        line_name: A well-formed public subway line name.
+
+    Returns:
+        `True` when the line exists in initialized MBTA subway data.
+    """
+    mbta_service = initialize_service()
+    return line_name in _known_line_names(mbta_service=mbta_service)
+
+
+def station_exists(
+    *,
+    station_id: str,
+) -> bool:
+    """Return whether a validated public station identifier is known.
+
+    Args:
+        station_id: A well-formed public MBTA station identifier.
+
+    Returns:
+        `True` when the station exists in initialized MBTA subway data.
+    """
+    mbta_service = initialize_service()
+    return station_id in _known_station_ids(mbta_service=mbta_service)
 
 
 def get_line_names() -> list[str]:

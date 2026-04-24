@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
+from django.http import JsonResponse
 from django.test import SimpleTestCase
 from django.test import override_settings
 from django.urls import NoReverseMatch
@@ -154,15 +155,19 @@ class LineDetailAPIViewTest(SimpleTestCase):
         )
 
         with patch(
-            "subway.views.services.get_line",
-            return_value=line_schema,
+            "subway.views._validate_line_name_request",
+            return_value=None,
         ):
-            response = self.client.get(
-                reverse(
-                    "subway:line_detail",
-                    kwargs={"line_name": "Red Line"},
-                ),
-            )
+            with patch(
+                "subway.views.services.get_line",
+                return_value=line_schema,
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:line_detail",
+                        kwargs={"line_name": "Red Line"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/json")
@@ -199,15 +204,19 @@ class LineDetailAPIViewTest(SimpleTestCase):
         )
 
         with patch(
-            "subway.views.services.get_line",
-            return_value=line_schema,
-        ) as get_line_mock:
-            response = self.client.get(
-                reverse(
-                    "subway:line_detail",
-                    kwargs={"line_name": "Blue Line"},
-                ),
-            )
+            "subway.views._validate_line_name_request",
+            return_value=None,
+        ):
+            with patch(
+                "subway.views.services.get_line",
+                return_value=line_schema,
+            ) as get_line_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:line_detail",
+                        kwargs={"line_name": "Blue Line"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 200)
         get_line_mock.assert_called_once_with(line_name="Blue Line")
@@ -215,8 +224,11 @@ class LineDetailAPIViewTest(SimpleTestCase):
     def test_line_detail_returns_404_for_unknown_line(self) -> None:
         """Ensure the endpoint reports missing lines clearly."""
         with patch(
-            "subway.views.services.get_line",
-            return_value=None,
+            "subway.views._validate_line_name_request",
+            return_value=JsonResponse(
+                {"error": "Line not found."},
+                status=404,
+            ),
         ):
             response = self.client.get(
                 reverse(
@@ -234,21 +246,52 @@ class LineDetailAPIViewTest(SimpleTestCase):
     def test_line_detail_returns_500_when_service_errors(self) -> None:
         """Ensure unexpected service failures become JSON 500 responses."""
         with patch(
-            "subway.views.services.get_line",
-            side_effect=RuntimeError("mbta unavailable"),
+            "subway.views._validate_line_name_request",
+            return_value=None,
         ):
-            response = self.client.get(
-                reverse(
-                    "subway:line_detail",
-                    kwargs={"line_name": "Red Line"},
-                ),
-            )
+            with patch(
+                "subway.views.services.get_line",
+                side_effect=RuntimeError("mbta unavailable"),
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:line_detail",
+                        kwargs={"line_name": "Red Line"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 500)
         self.assertJSONEqual(
             response.content.decode("utf-8"),
             {"error": "Unable to load line details."},
         )
+
+    def test_line_detail_returns_400_for_malformed_line_name(self) -> None:
+        """Ensure malformed line names are rejected before service lookup."""
+        with patch(
+            "subway.views.services.is_public_line_name_format_valid",
+            return_value=False,
+        ):
+            with patch(
+                "subway.views.services.line_exists",
+            ) as line_exists_mock:
+                with patch(
+                    "subway.views.services.get_line",
+                ) as get_line_mock:
+                    response = self.client.get(
+                        reverse(
+                            "subway:line_detail",
+                            kwargs={"line_name": "Red<script>"},
+                        ),
+                    )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Invalid line name."},
+        )
+        line_exists_mock.assert_not_called()
+        get_line_mock.assert_not_called()
 
 
 class LineAlertsAPIViewTest(SimpleTestCase):
@@ -264,16 +307,9 @@ class LineAlertsAPIViewTest(SimpleTestCase):
                 severity=5,
             ),
         ]
-        line_schema = LineSchema(
-            name="Orange Line",
-            color="ED8B00",
-            shapes=[],
-            stations=[],
-        )
-
         with patch(
-            "subway.views.services.get_line",
-            return_value=line_schema,
+            "subway.views._validate_line_name_request",
+            return_value=None,
         ):
             with patch(
                 "subway.views.services.get_line_alerts",
@@ -306,18 +342,22 @@ class LineAlertsAPIViewTest(SimpleTestCase):
     def test_line_alerts_returns_404_for_unknown_line(self) -> None:
         """Ensure the endpoint rejects missing lines before alert lookup."""
         with patch(
-            "subway.views.services.get_line",
-            return_value=None,
+            "subway.views.services.is_public_line_name_format_valid",
+            return_value=True,
         ):
             with patch(
-                "subway.views.services.get_line_alerts",
-            ) as get_line_alerts_mock:
-                response = self.client.get(
-                    reverse(
-                        "subway:line_alerts",
-                        kwargs={"line_name": "Silver Line"},
-                    ),
-                )
+                "subway.views.services.line_exists",
+                return_value=False,
+            ):
+                with patch(
+                    "subway.views.services.get_line_alerts",
+                ) as get_line_alerts_mock:
+                    response = self.client.get(
+                        reverse(
+                            "subway:line_alerts",
+                            kwargs={"line_name": "Silver Line"},
+                        ),
+                    )
 
         self.assertEqual(response.status_code, 404)
         self.assertJSONEqual(
@@ -328,16 +368,9 @@ class LineAlertsAPIViewTest(SimpleTestCase):
 
     def test_line_alerts_returns_500_when_service_errors(self) -> None:
         """Ensure unexpected alert failures become JSON 500 responses."""
-        line_schema = LineSchema(
-            name="Red Line",
-            color="DA291C",
-            shapes=[],
-            stations=[],
-        )
-
         with patch(
-            "subway.views.services.get_line",
-            return_value=line_schema,
+            "subway.views._validate_line_name_request",
+            return_value=None,
         ):
             with patch(
                 "subway.views.services.get_line_alerts",
@@ -373,15 +406,19 @@ class StationDetailAPIViewTest(SimpleTestCase):
         )
 
         with patch(
-            "subway.views.services.get_station",
-            return_value=station_schema,
+            "subway.views._validate_station_id_request",
+            return_value=None,
         ):
-            response = self.client.get(
-                reverse(
-                    "subway:station_detail",
-                    kwargs={"station_id": "place-gover"},
-                ),
-            )
+            with patch(
+                "subway.views.services.get_station",
+                return_value=station_schema,
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:station_detail",
+                        kwargs={"station_id": "place-gover"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/json")
@@ -414,15 +451,19 @@ class StationDetailAPIViewTest(SimpleTestCase):
         )
 
         with patch(
-            "subway.views.services.get_station",
-            return_value=station_schema,
-        ) as get_station_mock:
-            response = self.client.get(
-                reverse(
-                    "subway:station_detail",
-                    kwargs={"station_id": "place-pktrm"},
-                ),
-            )
+            "subway.views._validate_station_id_request",
+            return_value=None,
+        ):
+            with patch(
+                "subway.views.services.get_station",
+                return_value=station_schema,
+            ) as get_station_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:station_detail",
+                        kwargs={"station_id": "place-pktrm"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 200)
         get_station_mock.assert_called_once_with(station_id="place-pktrm")
@@ -430,8 +471,11 @@ class StationDetailAPIViewTest(SimpleTestCase):
     def test_station_detail_returns_404_for_unknown_station(self) -> None:
         """Ensure the endpoint reports missing stations clearly."""
         with patch(
-            "subway.views.services.get_station",
-            return_value=None,
+            "subway.views._validate_station_id_request",
+            return_value=JsonResponse(
+                {"error": "Station not found."},
+                status=404,
+            ),
         ):
             response = self.client.get(
                 reverse(
@@ -449,15 +493,19 @@ class StationDetailAPIViewTest(SimpleTestCase):
     def test_station_detail_returns_500_when_service_errors(self) -> None:
         """Ensure unexpected station failures become JSON 500 responses."""
         with patch(
-            "subway.views.services.get_station",
-            side_effect=RuntimeError("station unavailable"),
+            "subway.views._validate_station_id_request",
+            return_value=None,
         ):
-            response = self.client.get(
-                reverse(
-                    "subway:station_detail",
-                    kwargs={"station_id": "place-gover"},
-                ),
-            )
+            with patch(
+                "subway.views.services.get_station",
+                side_effect=RuntimeError("station unavailable"),
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:station_detail",
+                        kwargs={"station_id": "place-gover"},
+                    ),
+                )
 
         self.assertEqual(response.status_code, 500)
         self.assertJSONEqual(
@@ -465,21 +513,41 @@ class StationDetailAPIViewTest(SimpleTestCase):
             {"error": "Unable to load station details."},
         )
 
+    def test_station_detail_returns_400_for_malformed_station_id(
+        self,
+    ) -> None:
+        """Ensure malformed station IDs are rejected before lookup."""
+        with patch(
+            "subway.views.services.is_public_station_id_format_valid",
+            return_value=False,
+        ):
+            with patch(
+                "subway.views.services.station_exists",
+            ) as station_exists_mock:
+                with patch(
+                    "subway.views.services.get_station",
+                ) as get_station_mock:
+                    response = self.client.get(
+                        reverse(
+                            "subway:station_detail",
+                            kwargs={"station_id": "place-gover!"},
+                        ),
+                    )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Invalid station ID."},
+        )
+        station_exists_mock.assert_not_called()
+        get_station_mock.assert_not_called()
+
 
 class StationPredictionsAPIViewTest(SimpleTestCase):
     """Verify the station-predictions JSON endpoint."""
 
     def test_station_predictions_returns_a_json_array(self) -> None:
         """Ensure the endpoint exposes validated prediction rows."""
-        station_schema = StationDetailSchema(
-            station_id="place-jfk",
-            name="JFK/UMass",
-            latitude=42.320685,
-            longitude=-71.052391,
-            address=None,
-            lines_served=["Red Line"],
-            facilities=[],
-        )
         prediction_schemas = [
             PredictionSchema(
                 line="Red",
@@ -491,8 +559,8 @@ class StationPredictionsAPIViewTest(SimpleTestCase):
         ]
 
         with patch(
-            "subway.views.services.get_station",
-            return_value=station_schema,
+            "subway.views._validate_station_id_request",
+            return_value=None,
         ):
             with patch(
                 "subway.views.services.get_predictions",
@@ -528,18 +596,22 @@ class StationPredictionsAPIViewTest(SimpleTestCase):
     ) -> None:
         """Ensure the endpoint rejects missing stations before lookup."""
         with patch(
-            "subway.views.services.get_station",
-            return_value=None,
+            "subway.views.services.is_public_station_id_format_valid",
+            return_value=True,
         ):
             with patch(
-                "subway.views.services.get_predictions",
-            ) as get_predictions_mock:
-                response = self.client.get(
-                    reverse(
-                        "subway:station_predictions",
-                        kwargs={"station_id": "place-unknown"},
-                    ),
-                )
+                "subway.views.services.station_exists",
+                return_value=False,
+            ):
+                with patch(
+                    "subway.views.services.get_predictions",
+                ) as get_predictions_mock:
+                    response = self.client.get(
+                        reverse(
+                            "subway:station_predictions",
+                            kwargs={"station_id": "place-unknown"},
+                        ),
+                    )
 
         self.assertEqual(response.status_code, 404)
         self.assertJSONEqual(
@@ -552,19 +624,9 @@ class StationPredictionsAPIViewTest(SimpleTestCase):
         self,
     ) -> None:
         """Ensure unexpected prediction failures become JSON 500 responses."""
-        station_schema = StationDetailSchema(
-            station_id="place-brdwy",
-            name="Broadway",
-            latitude=42.342622,
-            longitude=-71.056967,
-            address=None,
-            lines_served=["Red Line"],
-            facilities=[],
-        )
-
         with patch(
-            "subway.views.services.get_station",
-            return_value=station_schema,
+            "subway.views._validate_station_id_request",
+            return_value=None,
         ):
             with patch(
                 "subway.views.services.get_predictions",
@@ -832,6 +894,59 @@ class ServiceSchemaTest(SimpleTestCase):
         self.assertIsInstance(predictions[0], PredictionSchema)
         self.assertEqual(predictions[0].line, "Red")
         self.assertEqual(predictions[0].status, "Boarding")
+
+    def test_public_input_format_validators_reject_malformed_values(
+        self,
+    ) -> None:
+        """Ensure the shared validators reject unsafe public inputs."""
+        self.assertTrue(
+            services.is_public_line_name_format_valid(
+                line_name="Red Line",
+            ),
+        )
+        self.assertFalse(
+            services.is_public_line_name_format_valid(
+                line_name="Red<script>",
+            ),
+        )
+        self.assertTrue(
+            services.is_public_station_id_format_valid(
+                station_id="place-gover",
+            ),
+        )
+        self.assertFalse(
+            services.is_public_station_id_format_valid(
+                station_id="place-gover!",
+            ),
+        )
+
+    def test_line_exists_and_station_exists_use_initialized_cache(
+        self,
+    ) -> None:
+        """Ensure existence checks use cached initialized subway data."""
+        fake_service = self._build_fake_mbta_service(
+            lines=[
+                {
+                    "name": "Blue Line",
+                    "stations": [
+                        {"station_id": "place-gover"},
+                    ],
+                },
+            ],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            self.assertTrue(services.line_exists(line_name="Blue Line"))
+            self.assertFalse(services.line_exists(line_name="Silver Line"))
+            self.assertTrue(
+                services.station_exists(station_id="place-gover"),
+            )
+            self.assertFalse(
+                services.station_exists(station_id="place-unknown"),
+            )
 
     def test_get_line_raises_validation_error_for_invalid_station_data(
         self,
