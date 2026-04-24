@@ -1,3 +1,1 @@
-from django.db import models
-
-# Create your models here.
+"""The subway app does not use database-backed models."""

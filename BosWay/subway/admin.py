@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+"""Admin configuration is intentionally empty because no database is used."""
