@@ -1,14 +1,15 @@
-# MBTA Subway
+# BosWay
 
 A real-time web application for the Massachusetts Bay Transportation Authority
-(MBTA) subway system. View train predictions, service alerts, station
-facilities, and an interactive map of the entire subway network.
+(MBTA) subway system. BosWay shows train predictions, service alerts, station
+facilities, and interactive subway maps through a Django backend and
+page-specific JavaScript clients.
 
 ## Author
 
 **Mike Woodward**
 
-## How It Works
+## How BosWay Works
 
 The application provides three pages accessible via tab navigation:
 
@@ -36,25 +37,27 @@ the author.
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    Browser                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
-│  │  app.js       │  │ map_fac.js   │  │ map_utils │ │
-│  │ (Trains page) │  │ (Map page)   │  │ (shared)  │ │
-│  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘ │
-│         │     fetch() JSON API      Leaflet │       │
-│         └──────────┬───────┘────────────────┘       │
+│  ┌────────────────┐  ┌───────────────────────────┐ │
+│  │ HTML templates │  │ Page scripts + Leaflet    │ │
+│  │ + shared CSS   │  │ trains_alerts.js          │ │
+│  │                │  │ map_facilities.js         │ │
+│  │                │  │ map_styles.js             │ │
+│  └────────┬───────┘  └──────────────┬────────────┘ │
+│           │ server-rendered pages   │ fetch JSON   │
+│           └──────────────┬──────────┴──────────────┘ │
 └────────────────────┼────────────────────────────────┘
                      │ HTTP
 ┌────────────────────┼────────────────────────────────┐
-│               Django 6.0                            │
-│  ┌─────────┐  ┌────┴─────┐  ┌──────────┐           │
-│  │ views.py│──│services.py│──│MBTA_class│           │
-│  │ (pages +│  │(singleton │  │ (API     │           │
-│  │  JSON)  │  │  + cache) │  │  client) │           │
-│  └─────────┘  └──────────┘  └────┬─────┘           │
-│  ┌──────────┐                    │                  │
-│  │schemas.py│  Pydantic          │                  │
-│  │(validate)│  validation        │                  │
-│  └──────────┘                    │                  │
+│               Django 6.0 / BosWay                  │
+│  ┌──────────┐   ┌────────────┐   ┌──────────────┐  │
+│  │ urls.py  │──▶│ views.py   │──▶│ services.py  │  │
+│  │ routing  │   │ pages + API│   │ MBTA bridge  │  │
+│  └──────────┘   └─────┬──────┘   └──────┬───────┘  │
+│                        │                 │          │
+│                  ┌─────▼──────┐   ┌──────▼───────┐  │
+│                  │ schemas.py │   │ apps.py      │  │
+│                  │ Pydantic   │   │ startup init │  │
+│                  └────────────┘   └──────────────┘  │
 └──────────────────────────────────┼──────────────────┘
                                    │ HTTPS
                           ┌────────┴────────┐
@@ -62,42 +65,107 @@ the author.
                           └─────────────────┘
 ```
 
-**Backend** — Django 6.0 project (`mbta_project`) with a single app (`subway`).
-There is no database; all transit data comes from the MBTA V3 API via the
-`MBTA` class. A service layer (`services.py`) initializes the MBTA client once
-at startup (~3 seconds), caches the result, and exposes wrapper functions.
-Django views serve HTML pages and JSON API endpoints. All API responses are
-validated through Pydantic schemas before serialization.
+BosWay is organized into four main layers:
 
-**Frontend** — Vanilla JavaScript (ES2022+) with Leaflet.js for interactive
-maps. Two page-specific scripts (`app.js`, `map_facilities.js`) and a shared
-utility module (`map_utils.js`) handle map rendering, API fetching, and popup
-interactions. A single CSS stylesheet uses custom properties for theming and
-responsive breakpoints.
+1. **Routing and views**: `BosWay/BosWay/urls.py` redirects `/` to the named
+   `subway:trains_alerts` route and includes the app routes from
+   `BosWay/subway/urls.py`. `BosWay/subway/views.py` serves both HTML pages and
+   JSON endpoints.
+2. **Service and schema layer**: `BosWay/subway/services.py` owns MBTA client
+   startup, public input validation, raw payload normalization, and conversion
+   into Pydantic models from `BosWay/subway/schemas.py`.
+3. **Frontend layer**: shared layout lives in
+   `BosWay/subway/templates/subway/base.html`, shared styling lives in
+   `BosWay/subway/static/subway/css/style.css`, and each interactive page loads
+   a dedicated script: `trains_alerts.js` or `map_facilities.js`. Both map
+   pages share the MBTA-specific Leaflet styling helpers in `map_styles.js`.
+4. **External MBTA integration**: `BosWay/subway/apps.py` triggers
+   initialization through `SubwayConfig.ready()`, and
+   `BosWay/subway/services.py` loads the repo-root `.env`, imports the sibling
+   `MBTA-API/MBTA_class.py`, and reuses one module-level MBTA client for the
+   lifetime of the process.
 
-**Project structure:**
+There is **no database** in the live app. Transit data comes from the MBTA V3
+API, and Django is used as a thin application layer that renders pages,
+validates requests, shapes responses, and serves the static assets that power
+the maps.
+
+## Request Flow
+
+### Page Requests
+
+1. A browser requests `/trains-alerts`, `/map-facilities`, or `/about`.
+2. `BosWay/subway/views.py` renders the matching template with `page_title` and
+   `active_page` so the shared header and navigation stay in sync.
+3. The page template extends `BosWay/subway/templates/subway/base.html` and
+   loads any page-specific assets through the template blocks.
+4. The interactive pages then bootstrap client-side behavior:
+   - `trains_alerts.js` initializes the Trains & Alerts map, fetches
+     `/api/lines`, and later loads one selected line plus its alerts in
+     parallel.
+   - `map_facilities.js` initializes the Map & Facilities map, fetches
+     `/api/lines`, loads every `/api/lines/<line_name>` response in parallel,
+     renders the full network, builds the legend, and fetches station details
+     on popup interaction.
+   - `about.html` is fully server-rendered and does not need page-specific API
+     calls.
+
+### API Requests
+
+1. Frontend JavaScript calls one of the JSON routes in
+   `BosWay/subway/urls.py`.
+2. `BosWay/subway/views.py` validates public `line_name` and `station_id`
+   values before any detail lookup:
+   - malformed values return JSON `400`
+   - unknown-but-well-formed values return JSON `404`
+3. The view delegates to `BosWay/subway/services.py`.
+4. The service layer ensures the shared MBTA client has been initialized, calls
+   the MBTA class, and normalizes the raw response into the app's schema shape.
+5. `BosWay/subway/schemas.py` validates the final payload structure.
+6. The Django view serializes the validated schema with
+   `model_dump(mode="json")` or returns a JSON array for list endpoints.
+7. On unexpected failures, the view logs the failing line information and
+   returns a short JSON `500` response instead of an HTML error page.
+
+### Page-Specific Software Flow
+
+- **Trains & Alerts**: page render -> initialize Leaflet map -> fetch line
+  names -> user selects a line -> fetch selected line detail and alerts in
+  parallel -> draw one `L.featureGroup` for the active line -> fetch station
+  predictions when a marker is clicked.
+- **Map & Facilities**: page render -> initialize Leaflet map -> fetch line
+  names -> fetch every line detail in parallel -> draw the full network in one
+  `L.featureGroup` -> render a legend from the already-fetched line data ->
+  fetch station details when a marker is hovered or clicked.
+- **About**: page render -> shared navigation and static informational content.
+
+## Project Structure
 
 ```
-mbta_project/              Django project settings, root URL config
-subway/                    Django app
-  MBTA_class.py            MBTA V3 API client (singleton)
-  services.py              Service layer wrapping MBTA client
-  schemas.py               Pydantic validation models
-  views.py                 Page views and JSON API views
-  urls.py                  URL routing
-  tests.py                 Unit and integration tests
-  static/subway/
-    css/style.css           Stylesheet with CSS custom properties
-    js/app.js               Trains & Alerts page logic
-    js/map_facilities.js    Map & Facilities page logic
-    js/map_utils.js         Shared Leaflet drawing utilities
-  templates/subway/
-    base.html               Base template with navigation
-    trains_alerts.html      Trains & Alerts page
-    map_facilities.html     Map & Facilities page
-    about.html              About page
-.env                       MBTA API key (not committed)
-requirements.txt           Python dependencies
+BosWay/
+  manage.py                      Django management entry point
+  BosWay/
+    settings.py                  Project settings
+    urls.py                      Root redirect and app include
+  subway/
+    apps.py                      Startup initialization hook
+    schemas.py                   Pydantic response models
+    services.py                  MBTA integration and normalization
+    urls.py                      Page and JSON routes
+    views.py                     HTML and JSON views
+    tests.py                     Focused Django tests
+    static/subway/
+      css/style.css              Shared app styling
+      js/trains_alerts.js        Trains & Alerts page behavior
+      js/map_facilities.js       Map & Facilities page behavior
+      js/map_styles.js           Shared Leaflet styling helpers
+    templates/subway/
+      base.html                  Shared page shell and navigation
+      trains_alerts.html         Trains & Alerts page
+      map_facilities.html        Map & Facilities page
+      about.html                 About page
+.env                             MBTA API key (not committed)
+requirements.txt                 Python dependencies
 ```
 
 ## Libraries and Versions
@@ -188,6 +256,7 @@ echo "MBTA_V3_API_KEY=your_api_key_here" > .env
 
 ```bash
 source .venv/bin/activate
+cd BosWay
 python manage.py runserver
 ```
 
@@ -201,6 +270,7 @@ URL redirects to the Trains & Alerts page.
 
 ```bash
 source .venv/bin/activate
+cd BosWay
 python manage.py test subway
 ```
 
@@ -211,11 +281,13 @@ python manage.py test subway
 
 | Method | Path | Response |
 |--------|------|----------|
-| GET | `/api/lines/` | List of subway line names |
-| GET | `/api/line/<name>/` | Line data (color, shapes, stations) |
-| GET | `/api/line/<name>/alerts/` | Alerts for a line |
-| GET | `/api/station/<id>/` | Station details (name, facilities, lines served) |
-| GET | `/api/station/<id>/predictions/` | Train predictions for a station |
+| GET | `/api/lines` | List of subway line names |
+| GET | `/api/lines/<name>` | Line data (color, shapes, stations) |
+| GET | `/api/lines/<name>/alerts` | Alerts for a line |
+| GET | `/api/stations/<id>` | Station details (name, facilities, lines served) |
+| GET | `/api/stations/<id>/predictions` | Train predictions for a station |
 
-Line names support spaces via URL encoding (e.g. `/api/line/Red%20Line/`).
-Invalid line names or station IDs return `404`. Server errors return `500`.
+Line names support spaces via URL encoding (for example,
+`/api/lines/Red%20Line`).
+Malformed line names or station IDs return `400`. Unknown-but-well-formed
+resources return `404`. Server errors return `500`.

@@ -46,6 +46,7 @@ python manage.py runserver
 - `DATABASES = {}` is exposed by Django as the dummy backend during runtime/tests, so assertions should check for `django.db.backends.dummy` rather than expecting a literal empty dict.
 - For JSON API views, return short JSON `404`/`500` responses instead of falling back to Django's default HTML error pages, and log the failing line number when catching unexpected exceptions.
 - If Ralph tracking files disagree with the `BosWay/` implementation state, verify the live code and tests first, then sync `ralph/projects/mbta-subway/prd.json` instead of re-implementing an already-finished story.
+- Keep `README.md` aligned with the live `BosWay/` layout, page script names, and `/api/lines` / `/api/stations` routes; older root-level paths and endpoint shapes are legacy documentation only.
 
 ## Dependencies
 - The Django project depends on the repo-level virtual environment at `.venv/`.
