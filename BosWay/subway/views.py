@@ -105,3 +105,115 @@ def line_detail(
     return JsonResponse(
         line.model_dump(mode="json"),
     )
+
+
+def line_alerts(
+    request: HttpRequest,
+    line_name: str,
+) -> JsonResponse:
+    """Return alert data for one subway line.
+
+    Args:
+        request: The incoming Django request.
+        line_name: The subway line display name from the URL.
+
+    Returns:
+        A JSON array of validated alert payloads.
+    """
+    _ = request
+    try:
+        line = services.get_line(line_name=line_name)
+        if line is None:
+            return JsonResponse(
+                {"error": "Line not found."},
+                status=404,
+            )
+
+        alerts = services.get_line_alerts(line_name=line_name)
+    except Exception as error:  # pragma: no cover - exercised via tests
+        _log_view_exception(exception=error)
+        return JsonResponse(
+            {"error": "Unable to load line alerts."},
+            status=500,
+        )
+
+    return JsonResponse(
+        [
+            alert.model_dump(mode="json")
+            for alert in alerts
+        ],
+        safe=False,
+    )
+
+
+def station_detail(
+    request: HttpRequest,
+    station_id: str,
+) -> JsonResponse:
+    """Return facility-backed detail data for one subway station.
+
+    Args:
+        request: The incoming Django request.
+        station_id: The MBTA station identifier from the URL.
+
+    Returns:
+        A JSON response containing one validated station payload.
+    """
+    _ = request
+    try:
+        station = services.get_station(station_id=station_id)
+    except Exception as error:  # pragma: no cover - exercised via tests
+        _log_view_exception(exception=error)
+        return JsonResponse(
+            {"error": "Unable to load station details."},
+            status=500,
+        )
+
+    if station is None:
+        return JsonResponse(
+            {"error": "Station not found."},
+            status=404,
+        )
+
+    return JsonResponse(
+        station.model_dump(mode="json"),
+    )
+
+
+def station_predictions(
+    request: HttpRequest,
+    station_id: str,
+) -> JsonResponse:
+    """Return prediction rows for one subway station.
+
+    Args:
+        request: The incoming Django request.
+        station_id: The MBTA station identifier from the URL.
+
+    Returns:
+        A JSON array of validated prediction payloads.
+    """
+    _ = request
+    try:
+        station = services.get_station(station_id=station_id)
+        if station is None:
+            return JsonResponse(
+                {"error": "Station not found."},
+                status=404,
+            )
+
+        predictions = services.get_predictions(station_id=station_id)
+    except Exception as error:  # pragma: no cover - exercised via tests
+        _log_view_exception(exception=error)
+        return JsonResponse(
+            {"error": "Unable to load station predictions."},
+            status=500,
+        )
+
+    return JsonResponse(
+        [
+            prediction.model_dump(mode="json")
+            for prediction in predictions
+        ],
+        safe=False,
+    )

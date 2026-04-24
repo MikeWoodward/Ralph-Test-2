@@ -23,6 +23,7 @@ python manage.py runserver
 - Startup MBTA initialization belongs in `BosWay/subway/apps.py` via `SubwayConfig.ready()` and must stay idempotent because Django can call `ready()` more than once in tests.
 - When a JSON endpoint returns a top-level list for frontend code, use `JsonResponse(..., safe=False)` and keep the view response shape identical to the service output.
 - For schema-backed detail endpoints such as `api/lines/<str:line_name>`, return `JsonResponse(schema.model_dump(mode="json"))` so nested tuples serialize cleanly to JSON arrays.
+- For list endpoints that can legitimately return an empty list, validate the parent resource first (`get_line()` or `get_station()`) so the view can still return JSON `404` for unknown IDs instead of treating missing resources as empty data.
 
 ## Gotchas
 - `STATICFILES_DIRS` points at `BosWay/static/`; keep that directory present or Django will raise `staticfiles.W004` during `manage.py check` and tests.

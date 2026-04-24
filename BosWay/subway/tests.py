@@ -251,6 +251,339 @@ class LineDetailAPIViewTest(SimpleTestCase):
         )
 
 
+class LineAlertsAPIViewTest(SimpleTestCase):
+    """Verify the line-alert JSON endpoint."""
+
+    def test_line_alerts_returns_a_json_array(self) -> None:
+        """Ensure the endpoint exposes validated alert payloads."""
+        alert_schemas = [
+            AlertSchema(
+                id="alert-1",
+                headline="Shuttle buses replace service",
+                description="Use shuttle buses between stations.",
+                severity=5,
+            ),
+        ]
+        line_schema = LineSchema(
+            name="Orange Line",
+            color="ED8B00",
+            shapes=[],
+            stations=[],
+        )
+
+        with patch(
+            "subway.views.services.get_line",
+            return_value=line_schema,
+        ):
+            with patch(
+                "subway.views.services.get_line_alerts",
+                return_value=alert_schemas,
+            ) as get_line_alerts_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:line_alerts",
+                        kwargs={"line_name": "Orange Line"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            [
+                {
+                    "id": "alert-1",
+                    "headline": "Shuttle buses replace service",
+                    "description": "Use shuttle buses between stations.",
+                    "severity": 5,
+                },
+            ],
+        )
+        get_line_alerts_mock.assert_called_once_with(
+            line_name="Orange Line",
+        )
+
+    def test_line_alerts_returns_404_for_unknown_line(self) -> None:
+        """Ensure the endpoint rejects missing lines before alert lookup."""
+        with patch(
+            "subway.views.services.get_line",
+            return_value=None,
+        ):
+            with patch(
+                "subway.views.services.get_line_alerts",
+            ) as get_line_alerts_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:line_alerts",
+                        kwargs={"line_name": "Silver Line"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Line not found."},
+        )
+        get_line_alerts_mock.assert_not_called()
+
+    def test_line_alerts_returns_500_when_service_errors(self) -> None:
+        """Ensure unexpected alert failures become JSON 500 responses."""
+        line_schema = LineSchema(
+            name="Red Line",
+            color="DA291C",
+            shapes=[],
+            stations=[],
+        )
+
+        with patch(
+            "subway.views.services.get_line",
+            return_value=line_schema,
+        ):
+            with patch(
+                "subway.views.services.get_line_alerts",
+                side_effect=RuntimeError("alerts unavailable"),
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:line_alerts",
+                        kwargs={"line_name": "Red Line"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Unable to load line alerts."},
+        )
+
+
+class StationDetailAPIViewTest(SimpleTestCase):
+    """Verify the station-detail JSON endpoint."""
+
+    def test_station_detail_returns_a_schema_backed_payload(self) -> None:
+        """Ensure the endpoint exposes validated station detail JSON."""
+        station_schema = StationDetailSchema(
+            station_id="place-gover",
+            name="Government Center",
+            latitude=42.359705,
+            longitude=-71.059215,
+            address="Cambridge St",
+            lines_served=["Blue Line", "Green Line"],
+            facilities=["ESCALATOR: Main lobby", "ELEVATOR: Court St"],
+        )
+
+        with patch(
+            "subway.views.services.get_station",
+            return_value=station_schema,
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:station_detail",
+                    kwargs={"station_id": "place-gover"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {
+                "station_id": "place-gover",
+                "name": "Government Center",
+                "latitude": 42.359705,
+                "longitude": -71.059215,
+                "address": "Cambridge St",
+                "lines_served": ["Blue Line", "Green Line"],
+                "facilities": [
+                    "ESCALATOR: Main lobby",
+                    "ELEVATOR: Court St",
+                ],
+            },
+        )
+
+    def test_station_detail_passes_the_requested_station_id(self) -> None:
+        """Ensure the endpoint delegates with the URL station identifier."""
+        station_schema = StationDetailSchema(
+            station_id="place-pktrm",
+            name="Park Street",
+            latitude=42.35639457,
+            longitude=-71.0624242,
+            address=None,
+            lines_served=["Green Line", "Red Line"],
+            facilities=[],
+        )
+
+        with patch(
+            "subway.views.services.get_station",
+            return_value=station_schema,
+        ) as get_station_mock:
+            response = self.client.get(
+                reverse(
+                    "subway:station_detail",
+                    kwargs={"station_id": "place-pktrm"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        get_station_mock.assert_called_once_with(station_id="place-pktrm")
+
+    def test_station_detail_returns_404_for_unknown_station(self) -> None:
+        """Ensure the endpoint reports missing stations clearly."""
+        with patch(
+            "subway.views.services.get_station",
+            return_value=None,
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:station_detail",
+                    kwargs={"station_id": "place-unknown"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Station not found."},
+        )
+
+    def test_station_detail_returns_500_when_service_errors(self) -> None:
+        """Ensure unexpected station failures become JSON 500 responses."""
+        with patch(
+            "subway.views.services.get_station",
+            side_effect=RuntimeError("station unavailable"),
+        ):
+            response = self.client.get(
+                reverse(
+                    "subway:station_detail",
+                    kwargs={"station_id": "place-gover"},
+                ),
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Unable to load station details."},
+        )
+
+
+class StationPredictionsAPIViewTest(SimpleTestCase):
+    """Verify the station-predictions JSON endpoint."""
+
+    def test_station_predictions_returns_a_json_array(self) -> None:
+        """Ensure the endpoint exposes validated prediction rows."""
+        station_schema = StationDetailSchema(
+            station_id="place-jfk",
+            name="JFK/UMass",
+            latitude=42.320685,
+            longitude=-71.052391,
+            address=None,
+            lines_served=["Red Line"],
+            facilities=[],
+        )
+        prediction_schemas = [
+            PredictionSchema(
+                line="Red",
+                destination="Alewife",
+                arrival_time="2026-04-23T12:15:00Z",
+                departure_time=None,
+                status="Boarding",
+            ),
+        ]
+
+        with patch(
+            "subway.views.services.get_station",
+            return_value=station_schema,
+        ):
+            with patch(
+                "subway.views.services.get_predictions",
+                return_value=prediction_schemas,
+            ) as get_predictions_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:station_predictions",
+                        kwargs={"station_id": "place-jfk"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            [
+                {
+                    "line": "Red",
+                    "destination": "Alewife",
+                    "arrival_time": "2026-04-23T12:15:00Z",
+                    "departure_time": None,
+                    "status": "Boarding",
+                },
+            ],
+        )
+        get_predictions_mock.assert_called_once_with(
+            station_id="place-jfk",
+        )
+
+    def test_station_predictions_returns_404_for_unknown_station(
+        self,
+    ) -> None:
+        """Ensure the endpoint rejects missing stations before lookup."""
+        with patch(
+            "subway.views.services.get_station",
+            return_value=None,
+        ):
+            with patch(
+                "subway.views.services.get_predictions",
+            ) as get_predictions_mock:
+                response = self.client.get(
+                    reverse(
+                        "subway:station_predictions",
+                        kwargs={"station_id": "place-unknown"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Station not found."},
+        )
+        get_predictions_mock.assert_not_called()
+
+    def test_station_predictions_returns_500_when_service_errors(
+        self,
+    ) -> None:
+        """Ensure unexpected prediction failures become JSON 500 responses."""
+        station_schema = StationDetailSchema(
+            station_id="place-brdwy",
+            name="Broadway",
+            latitude=42.342622,
+            longitude=-71.056967,
+            address=None,
+            lines_served=["Red Line"],
+            facilities=[],
+        )
+
+        with patch(
+            "subway.views.services.get_station",
+            return_value=station_schema,
+        ):
+            with patch(
+                "subway.views.services.get_predictions",
+                side_effect=RuntimeError("predictions unavailable"),
+            ):
+                response = self.client.get(
+                    reverse(
+                        "subway:station_predictions",
+                        kwargs={"station_id": "place-brdwy"},
+                    ),
+                )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Unable to load station predictions."},
+        )
+
+
 class ServiceBootstrapTest(SimpleTestCase):
     """Verify shared MBTA service bootstrapping behavior."""
 
