@@ -309,6 +309,7 @@ h1 {
 }
 
 .map-facilities-page__map-shell {
+    position: relative;
     overflow: hidden;
     border-radius: 1rem;
     background: #ffffff;
@@ -323,6 +324,59 @@ h1 {
         linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
         linear-gradient(135deg, #dcecff 0%, #eef5fb 52%, #d9ede2 100%);
     border: 1px solid #c7d8e6;
+}
+
+.map-facilities-page__legend {
+    position: absolute;
+    top: 2.1rem;
+    right: 2.1rem;
+    z-index: 450;
+    max-width: min(12rem, calc(100% - 4.5rem));
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(148, 170, 193, 0.75);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 10px 28px rgba(16, 35, 58, 0.16);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+}
+
+.map-facilities-page__legend-title {
+    margin: 0 0 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #204060;
+}
+
+.map-facilities-page__legend-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.map-facilities-page__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    color: #10233a;
+}
+
+.map-facilities-page__legend-swatch {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(16, 35, 58, 0.12);
+}
+
+.map-facilities-page__legend-label {
+    line-height: 1.35;
 }
 
 @media (max-width: 720px) {
@@ -350,5 +404,12 @@ h1 {
     .map-facilities-page__map {
         min-height: 60vh;
         margin: 1rem;
+    }
+
+    .map-facilities-page__legend {
+        top: 1.75rem;
+        right: 1.75rem;
+        max-width: min(10.5rem, calc(100% - 3.5rem));
+        padding: 0.75rem 0.85rem;
     }
 }

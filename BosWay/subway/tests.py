@@ -160,7 +160,7 @@ class MapFacilitiesPageTest(SimpleTestCase):
     """Verify the Map and Facilities page network map experience."""
 
     def test_page_renders_map_container_and_leaflet_assets(self) -> None:
-        """Ensure the page includes its map shell and Leaflet assets."""
+        """Ensure the page includes its map, legend, and Leaflet assets."""
         response = self.client.get(reverse("subway:map_facilities"))
         script_path = finders.find("subway/js/map_facilities.js")
 
@@ -182,22 +182,35 @@ class MapFacilitiesPageTest(SimpleTestCase):
             response,
             'src="/static/subway/js/map_facilities.js"',
         )
+        self.assertContains(
+            response,
+            'id="map-facilities-legend-items"',
+        )
+        self.assertContains(
+            response,
+            "Subway lines",
+        )
 
     def test_stylesheet_gives_the_page_a_full_width_map_layout(self) -> None:
-        """Ensure the page-specific CSS reserves a large map area."""
+        """Ensure the page-specific CSS positions the map and legend."""
         stylesheet_path = finders.find("subway/css/style.css")
 
         self.assertIsNotNone(stylesheet_path)
         stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
 
         self.assertIn(".map-facilities-page {", stylesheet_text)
+        self.assertIn(".map-facilities-page__map-shell {", stylesheet_text)
         self.assertIn(".map-facilities-page__map {", stylesheet_text)
         self.assertIn("min-height: 75vh;", stylesheet_text)
+        self.assertIn(".map-facilities-page__legend {", stylesheet_text)
+        self.assertIn("position: absolute;", stylesheet_text)
+        self.assertIn("pointer-events: none;", stylesheet_text)
+        self.assertIn(".map-facilities-page__legend-swatch {", stylesheet_text)
 
     def test_script_fetches_all_lines_draws_network_and_fits_bounds(
         self,
     ) -> None:
-        """Ensure startup JS renders the full system into one feature group."""
+        """Ensure startup JS renders the full system and legend together."""
         script_path = finders.find("subway/js/map_facilities.js")
 
         self.assertIsNotNone(script_path)
@@ -211,6 +224,13 @@ class MapFacilitiesPageTest(SimpleTestCase):
         self.assertIn("window.L.featureGroup(renderedLayers)", script_text)
         self.assertIn("mapFacilitiesMap.fitBounds(", script_text)
         self.assertIn("networkLayerGroup.getBounds()", script_text)
+        self.assertIn("const buildLegendEntries = ", script_text)
+        self.assertIn(
+            '#map-facilities-legend-items',
+            script_text,
+        )
+        self.assertIn("legendSwatch.style.backgroundColor", script_text)
+        self.assertIn("renderLegend({ lineDetails: validLineDetails });", script_text)
 
 
 class TrainsAlertsLayoutTest(SimpleTestCase):

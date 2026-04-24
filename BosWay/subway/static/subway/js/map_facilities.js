@@ -150,6 +150,52 @@ const removeNetworkLayerGroup = () => {
     }
 };
 
+const buildLegendEntries = ({ lineDetails }) =>
+    lineDetails.reduce((legendEntries, lineData) => {
+        const lineName =
+            typeof lineData?.name === "string" ? lineData.name.trim() : "";
+
+        if (!lineName || legendEntries.some((entry) => entry.name === lineName)) {
+            return legendEntries;
+        }
+
+        legendEntries.push({
+            color: getLineColor({ color: lineData?.color }),
+            name: lineName,
+        });
+
+        return legendEntries;
+    }, []);
+
+const renderLegend = ({ lineDetails }) => {
+    const legendItemsElement = document.querySelector(
+        "#map-facilities-legend-items",
+    );
+
+    if (!(legendItemsElement instanceof HTMLUListElement)) {
+        return;
+    }
+
+    legendItemsElement.replaceChildren();
+
+    buildLegendEntries({ lineDetails }).forEach((legendEntry) => {
+        const legendItem = document.createElement("li");
+        legendItem.className = "map-facilities-page__legend-item";
+
+        const legendSwatch = document.createElement("span");
+        legendSwatch.className = "map-facilities-page__legend-swatch";
+        legendSwatch.style.backgroundColor = legendEntry.color;
+        legendSwatch.setAttribute("aria-hidden", "true");
+
+        const legendLabel = document.createElement("span");
+        legendLabel.className = "map-facilities-page__legend-label";
+        legendLabel.textContent = legendEntry.name;
+
+        legendItem.append(legendSwatch, legendLabel);
+        legendItemsElement.append(legendItem);
+    });
+};
+
 const renderFullNetwork = ({ lineDetails }) => {
     if (!mapFacilitiesMap || typeof window.L === "undefined") {
         return;
@@ -218,11 +264,12 @@ const loadAndRenderFullNetwork = async () => {
         lineNames.map((lineName) => fetchLineDetail({ lineName })),
     );
 
-    renderFullNetwork({
-        lineDetails: lineDetails.filter(
-            (lineData) => typeof lineData === "object" && lineData !== null,
-        ),
-    });
+    const validLineDetails = lineDetails.filter(
+        (lineData) => typeof lineData === "object" && lineData !== null,
+    );
+
+    renderLegend({ lineDetails: validLineDetails });
+    renderFullNetwork({ lineDetails: validLineDetails });
 };
 
 document.addEventListener("DOMContentLoaded", () => {
