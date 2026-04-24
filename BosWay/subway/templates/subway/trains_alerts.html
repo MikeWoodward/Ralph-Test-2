@@ -1,12 +1,40 @@
 {% extends "subway/base.html" %}
 
 {% block content %}
-    <section class="content-panel">
-        <p class="eyebrow">BosWay</p>
-        <h1 class="page-title">trains &amp; alerts</h1>
-        <p class="page-copy">
-            Explore live subway line information, alerts, and train activity
-            from a shared BosWay dashboard.
-        </p>
+    <section class="trains-page">
+        <div class="trains-page__controls">
+            <label class="trains-page__label" for="line-select">
+                Subway line
+            </label>
+            <select id="line-select" name="line_name">
+                <option value="">Select a subway line to display</option>
+            </select>
+        </div>
+        <section
+            id="alerts-panel"
+            class="trains-page__alerts"
+            aria-live="polite"
+            hidden
+        >
+            <h2 class="trains-page__alerts-title">Service alerts</h2>
+            <div id="alerts-content"></div>
+        </section>
+        <section class="trains-page__map-shell" aria-labelledby="trains-map-title">
+            <div class="trains-page__map-copy">
+                <p class="eyebrow">BosWay</p>
+                <h1 id="trains-map-title" class="page-title">
+                    trains &amp; alerts
+                </h1>
+                <p class="page-copy">
+                    Select a subway line to load live alerts and route details.
+                </p>
+            </div>
+            <div
+                id="trains-map"
+                class="trains-page__map"
+                role="img"
+                aria-label="Boston subway map display area"
+            ></div>
+        </section>
     </section>
 {% endblock content %}

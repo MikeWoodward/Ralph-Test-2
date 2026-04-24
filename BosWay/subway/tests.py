@@ -156,6 +156,65 @@ class SharedPageLayoutTest(SimpleTestCase):
         )
 
 
+class TrainsAlertsLayoutTest(SimpleTestCase):
+    """Verify the initial Trains and Alerts page layout."""
+
+    def test_page_renders_dropdown_hidden_alerts_and_map(self) -> None:
+        """Ensure first load exposes the required layout elements."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'id="line-select"',
+        )
+        self.assertContains(
+            response,
+            "Select a subway line to display",
+        )
+        self.assertContains(
+            response,
+            'id="alerts-panel"',
+        )
+        self.assertContains(
+            response,
+            'aria-live="polite"',
+        )
+        self.assertContains(
+            response,
+            'id="trains-map"',
+        )
+
+    def test_alerts_panel_is_hidden_and_kept_between_controls_and_map(
+        self,
+    ) -> None:
+        """Ensure the reserved alerts area is hidden on first load."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+        response_html = response.content.decode("utf-8")
+
+        select_position = response_html.index('id="line-select"')
+        alerts_position = response_html.index('id="alerts-panel"')
+        map_position = response_html.index('id="trains-map"')
+
+        self.assertLess(select_position, alerts_position)
+        self.assertLess(alerts_position, map_position)
+        self.assertIn(
+            'id="alerts-panel"\n            class="trains-page__alerts"\n'
+            '            aria-live="polite"\n            hidden',
+            response_html,
+        )
+
+    def test_stylesheet_keeps_the_map_large_on_first_load(self) -> None:
+        """Ensure the map area claims at least seventy viewport height."""
+        stylesheet_path = finders.find("subway/css/style.css")
+
+        self.assertIsNotNone(stylesheet_path)
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
+
+        self.assertIn(".trains-page__map {", stylesheet_text)
+        self.assertIn("min-height: 70vh;", stylesheet_text)
+
+
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""
 
