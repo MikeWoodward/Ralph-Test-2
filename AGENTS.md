@@ -16,6 +16,7 @@ python manage.py runserver
 - Application code lives under `BosWay/`; run Django commands from that directory with `../.venv/bin/python manage.py ...`.
 - Keep the root URL redirect in `BosWay/BosWay/urls.py` pointed at the named route `subway:trains_alerts` so page routing stays stable if the page path changes later.
 - Use `BosWay/subway/templates/subway/` and `BosWay/subway/static/subway/` for app-owned templates and static assets.
+- Shared page navigation lives in `BosWay/subway/templates/subway/base.html`; page views should pass both `page_title` and `active_page` so the title stays `BosWay - <page>` and the correct nav tab is highlighted.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.

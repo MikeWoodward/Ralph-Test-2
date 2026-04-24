@@ -11,8 +11,41 @@
     <link rel="stylesheet" href="{% static 'subway/css/style.css' %}">
 </head>
 <body>
-    <main class="page-shell">
-        {% block content %}{% endblock content %}
-    </main>
+    <div class="page-shell">
+        <header class="site-header">
+            <div class="site-header__inner">
+                <a class="site-brand" href="{% url 'subway:trains_alerts' %}">
+                    BosWay
+                </a>
+                <nav
+                    class="site-nav"
+                    aria-label="Primary"
+                >
+                    <a
+                        class="site-nav__link{% if active_page == 'trains_alerts' %} site-nav__link--active{% endif %}"
+                        href="{% url 'subway:trains_alerts' %}"
+                    >
+                        trains &amp; alerts
+                    </a>
+                    <a
+                        class="site-nav__link{% if active_page == 'map_facilities' %} site-nav__link--active{% endif %}"
+                        href="{% url 'subway:map_facilities' %}"
+                    >
+                        map &amp; facilities
+                    </a>
+                    <a
+                        class="site-nav__link{% if active_page == 'about' %} site-nav__link--active{% endif %}"
+                        href="{% url 'subway:about' %}"
+                    >
+                        about
+                    </a>
+                </nav>
+            </div>
+        </header>
+        <main class="page-content">
+            {% block content %}{% endblock content %}
+        </main>
+    </div>
+    {% block page_scripts %}{% endblock page_scripts %}
 </body>
 </html>

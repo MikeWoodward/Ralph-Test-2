@@ -37,4 +37,14 @@ urlpatterns = [
         views.trains_alerts,
         name="trains_alerts",
     ),
+    path(
+        "map-facilities",
+        views.map_facilities,
+        name="map_facilities",
+    ),
+    path(
+        "about",
+        views.about,
+        name="about",
+    ),
 ]

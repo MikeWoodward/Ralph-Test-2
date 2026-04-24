@@ -7,12 +7,69 @@ body {
 
 .page-shell {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.site-header {
+    border-bottom: 1px solid #d6e0eb;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(16, 35, 58, 0.08);
+}
+
+.site-header__inner {
+    width: min(100%, 72rem);
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.site-brand {
+    color: #005ea8;
+    font-size: 1.375rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.site-nav__link {
+    border-radius: 999px;
+    padding: 0.625rem 1rem;
+    color: #204060;
+    text-decoration: none;
+    font-weight: 600;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.site-nav__link:hover,
+.site-nav__link:focus-visible {
+    background: #e1eef9;
+    color: #003e73;
+}
+
+.site-nav__link--active {
+    background: #005ea8;
+    color: #ffffff;
+}
+
+.page-content {
+    flex: 1;
     display: grid;
     place-items: center;
     padding: 2rem;
 }
 
-.hero-panel {
+.content-panel {
     width: min(100%, 42rem);
     padding: 2rem;
     border-radius: 1rem;
@@ -32,4 +89,26 @@ body {
 h1 {
     margin: 0 0 1rem;
     font-size: clamp(2rem, 3vw, 2.75rem);
+}
+
+.page-title {
+    margin-bottom: 0.75rem;
+}
+
+.page-copy {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+    .site-header__inner {
+        padding: 1rem 1.25rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .page-content {
+        padding: 1.25rem;
+    }
 }

@@ -13,6 +13,26 @@ from . import services
 LOGGER = logging.getLogger(__name__)
 
 
+def _build_page_context(
+    *,
+    page_title: str,
+    active_page: str,
+) -> dict[str, str]:
+    """Build the shared template context for page views.
+
+    Args:
+        page_title: The page label to display in the document title.
+        active_page: The navigation key for the active page.
+
+    Returns:
+        The shared template context for page rendering.
+    """
+    return {
+        "page_title": page_title,
+        "active_page": active_page,
+    }
+
+
 def _log_view_exception(
     *,
     exception: Exception,
@@ -105,9 +125,52 @@ def trains_alerts(
     return render(
         request,
         "subway/trains_alerts.html",
-        {
-            "page_title": "trains & alerts",
-        },
+        _build_page_context(
+            page_title="trains & alerts",
+            active_page="trains_alerts",
+        ),
+    )
+
+
+def map_facilities(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Render the Map and Facilities page.
+
+    Args:
+        request: The incoming Django request.
+
+    Returns:
+        The rendered map and facilities page response.
+    """
+    return render(
+        request,
+        "subway/map_facilities.html",
+        _build_page_context(
+            page_title="map & facilities",
+            active_page="map_facilities",
+        ),
+    )
+
+
+def about(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Render the About page.
+
+    Args:
+        request: The incoming Django request.
+
+    Returns:
+        The rendered about page response.
+    """
+    return render(
+        request,
+        "subway/about.html",
+        _build_page_context(
+            page_title="about",
+            active_page="about",
+        ),
     )
 
 

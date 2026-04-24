@@ -85,6 +85,77 @@ class ProjectSetupTest(SimpleTestCase):
             reverse("admin:index")
 
 
+class SharedPageLayoutTest(SimpleTestCase):
+    """Verify the shared BosWay layout for user-facing pages."""
+
+    def test_trains_alerts_page_uses_shared_navigation(self) -> None:
+        """Ensure the trains page shows the shared title and nav links."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "BosWay - trains &amp; alerts")
+        self.assertContains(
+            response,
+            'href="/trains-alerts"',
+        )
+        self.assertContains(
+            response,
+            'href="/map-facilities"',
+        )
+        self.assertContains(
+            response,
+            'href="/about"',
+        )
+        self.assertContains(
+            response,
+            'site-nav__link--active',
+        )
+
+    def test_map_facilities_page_renders_shared_layout(self) -> None:
+        """Ensure the map page renders with the shared layout."""
+        response = self.client.get(reverse("subway:map_facilities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "subway/map_facilities.html",
+        )
+        self.assertContains(response, "BosWay - map &amp; facilities")
+        self.assertContains(response, "map &amp; facilities")
+        self.assertContains(
+            response,
+            'href="/trains-alerts"',
+        )
+        self.assertContains(
+            response,
+            'href="/about"',
+        )
+
+    def test_about_page_renders_shared_layout(self) -> None:
+        """Ensure the about page renders with the shared layout."""
+        response = self.client.get(reverse("subway:about"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "subway/about.html",
+        )
+        self.assertContains(response, "BosWay - about")
+        self.assertContains(
+            response,
+            '<h1 class="page-title">about</h1>',
+            html=True,
+        )
+        self.assertContains(
+            response,
+            'href="/trains-alerts"',
+        )
+        self.assertContains(
+            response,
+            'href="/map-facilities"',
+        )
+
+
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""
 
