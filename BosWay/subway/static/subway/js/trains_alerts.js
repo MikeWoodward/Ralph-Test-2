@@ -14,14 +14,39 @@ const SUBWAY_SYSTEM_BOUNDS = [
     [42.4368, -70.9860],
 ];
 const MAP_PADDING = [24, 24];
-const DEFAULT_LINE_COLOR = "#1f2937";
-const LINE_WEIGHT = 4;
-const STATION_MARKER_RADIUS = 6;
-const STATION_MARKER_WEIGHT = 2;
 const MAX_PREDICTIONS_PER_LINE = 4;
 const POPUP_MAX_WIDTH = 320;
 const POPUP_CLOSE_DELAY_MS = 180;
 const POPUP_AUTO_PAN_PADDING = 24;
+const mapStyles = window.BosWayMapStyles ?? {};
+const DEFAULT_LINE_COLOR = mapStyles.DEFAULT_LINE_COLOR ?? "#1f2937";
+const createLineStyle =
+    mapStyles.createLineStyle ??
+    (({ color }) => ({
+        color:
+            typeof color === "string" && color.trim().length > 0
+                ? `#${color.trim()}`
+                : DEFAULT_LINE_COLOR,
+        lineCap: "round",
+        lineJoin: "round",
+        opacity: 1,
+        weight: 4,
+    }));
+const createStationMarkerStyle =
+    mapStyles.createStationMarkerStyle ??
+    (({ color }) => ({
+        color:
+            typeof color === "string" && color.trim().length > 0
+                ? `#${color.trim()}`
+                : DEFAULT_LINE_COLOR,
+        fillColor: "#ffffff",
+        fillOpacity: 1,
+        lineCap: "round",
+        lineJoin: "round",
+        opacity: 1,
+        radius: 7,
+        weight: 3,
+    }));
 
 const predictionTimeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
@@ -99,11 +124,6 @@ const getLineAlertsEndpoint = ({ lineName }) =>
 const getStationPredictionsEndpoint = ({ stationId }) =>
     `${STATION_ENDPOINT_BASE}${encodeURIComponent(stationId)}` +
     `${STATION_PREDICTIONS_SUFFIX}`;
-
-const getLineColor = ({ color }) =>
-    typeof color === "string" && color.trim().length > 0
-        ? `#${color.trim()}`
-        : DEFAULT_LINE_COLOR;
 
 const fetchLineDetail = async ({ lineName }) => {
     const response = await fetch(getLineDetailEndpoint({ lineName }), {
@@ -183,13 +203,10 @@ const buildShapeLayers = ({ lineData, lineColor }) =>
                 Array.isArray(shapeCoordinates) && shapeCoordinates.length > 0,
         )
         .map((shapeCoordinates) =>
-            window.L.polyline(shapeCoordinates, {
-                color: lineColor,
-                weight: LINE_WEIGHT,
-                opacity: 0.9,
-                lineJoin: "round",
-                lineCap: "round",
-            }),
+            window.L.polyline(
+                shapeCoordinates,
+                createLineStyle({ color: lineColor }),
+            ),
         );
 
 const buildStationLayers = ({ lineData, lineColor }) =>
@@ -203,11 +220,7 @@ const buildStationLayers = ({ lineData, lineColor }) =>
             window.L.circleMarker(
                 [station.latitude, station.longitude],
                 {
-                    radius: STATION_MARKER_RADIUS,
-                    color: lineColor,
-                    weight: STATION_MARKER_WEIGHT,
-                    fillColor: "#ffffff",
-                    fillOpacity: 1,
+                    ...createStationMarkerStyle({ color: lineColor }),
                     stationId: station.station_id,
                     stationName:
                         typeof station.name === "string" && station.name.trim()
@@ -528,7 +541,7 @@ const renderSelectedLine = ({ lineData }) => {
         return;
     }
 
-    const lineColor = getLineColor({ color: lineData?.color });
+    const lineColor = createLineStyle({ color: lineData?.color }).color;
     const stationLayers = buildStationLayers({ lineData, lineColor });
 
     attachStationPredictionHandlers({ stationLayers });

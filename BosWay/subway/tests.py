@@ -184,6 +184,10 @@ class MapFacilitiesPageTest(SimpleTestCase):
         )
         self.assertContains(
             response,
+            'src="/static/subway/js/map_styles.js"',
+        )
+        self.assertContains(
+            response,
             'id="map-facilities-legend-items"',
         )
         self.assertContains(
@@ -221,6 +225,11 @@ class MapFacilitiesPageTest(SimpleTestCase):
         self.assertIn("fetchLineDetail({ lineName })", script_text)
         self.assertIn("window.L.polyline", script_text)
         self.assertIn("window.L.circleMarker", script_text)
+        self.assertIn("createLineStyle({ color: lineColor })", script_text)
+        self.assertIn(
+            "createStationMarkerStyle({ color: lineColor })",
+            script_text,
+        )
         self.assertIn("window.L.featureGroup(renderedLayers)", script_text)
         self.assertIn("mapFacilitiesMap.fitBounds(", script_text)
         self.assertIn("networkLayerGroup.getBounds()", script_text)
@@ -231,6 +240,25 @@ class MapFacilitiesPageTest(SimpleTestCase):
         )
         self.assertIn("legendSwatch.style.backgroundColor", script_text)
         self.assertIn("renderLegend({ lineDetails: validLineDetails });", script_text)
+
+    def test_shared_map_styles_define_mbta_line_and_station_options(
+        self,
+    ) -> None:
+        """Ensure both map pages share one MBTA visual styling contract."""
+        script_path = finders.find("subway/js/map_styles.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn("window.BosWayMapStyles = Object.freeze({", script_text)
+        self.assertIn("const LINE_WEIGHT = 4;", script_text)
+        self.assertIn("const STATION_MARKER_RADIUS = 7;", script_text)
+        self.assertIn("const STATION_MARKER_WEIGHT = 3;", script_text)
+        self.assertIn('const STATION_MARKER_FILL_COLOR = "#ffffff";', script_text)
+        self.assertIn('lineCap: "round"', script_text)
+        self.assertIn('lineJoin: "round"', script_text)
+        self.assertIn("opacity: 1,", script_text)
+        self.assertIn("fillOpacity: 1,", script_text)
 
     def test_map_facilities_script_opens_station_detail_popups(
         self,
@@ -346,6 +374,10 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
             response,
             'src="/static/subway/js/trains_alerts.js"',
         )
+        self.assertContains(
+            response,
+            'src="/static/subway/js/map_styles.js"',
+        )
 
     def test_page_loads_leaflet_assets_for_the_initial_map(self) -> None:
         """Ensure the trains page loads the Leaflet assets it needs."""
@@ -389,6 +421,11 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
         self.assertIn("selectedLineLayerGroup.remove()", script_text)
         self.assertIn("window.L.polyline", script_text)
         self.assertIn("window.L.circleMarker", script_text)
+        self.assertIn("createLineStyle({ color: lineColor })", script_text)
+        self.assertIn(
+            "createStationMarkerStyle({ color: lineColor })",
+            script_text,
+        )
         self.assertIn("window.L.featureGroup(renderedLayers)", script_text)
         self.assertIn(
             "trainsMap.fitBounds(selectedLineLayerGroup.getBounds()",
