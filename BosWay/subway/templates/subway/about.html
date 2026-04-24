@@ -5,8 +5,33 @@
         <p class="eyebrow">BosWay</p>
         <h1 class="page-title">about</h1>
         <p class="page-copy">
-            Learn about the BosWay project, its MBTA subway data experience,
-            and the shared navigation used across every page.
+            BosWay is a subway rider reference for checking Boston-area lines,
+            alerts, station facilities, and upcoming train predictions.
         </p>
+        <section aria-labelledby="about-author-heading">
+            <h2 id="about-author-heading">Author</h2>
+            <p class="page-copy">Mike Woodward</p>
+        </section>
+        <section aria-labelledby="about-services-heading">
+            <h2 id="about-services-heading">External services</h2>
+            <ul>
+                <li>MBTA V3 API for subway lines, alerts, and predictions</li>
+                <li>OpenStreetMap for the basemap tiles and map data</li>
+                <li>Leaflet.js for the interactive map interface</li>
+            </ul>
+        </section>
+        <section aria-labelledby="about-acknowledgment-heading">
+            <h2 id="about-acknowledgment-heading">MBTA acknowledgment</h2>
+            <p class="page-copy">
+                BosWay uses Massachusetts Bay Transportation Authority data to
+                support this subway experience.
+            </p>
+            <p class="page-copy">
+                View official subway schedules on
+                <a href="https://www.mbta.com/schedules/subway">
+                    the MBTA subway schedules page
+                </a>.
+            </p>
+        </section>
     </section>
 {% endblock content %}

@@ -155,6 +155,24 @@ class SharedPageLayoutTest(SimpleTestCase):
             'href="/map-facilities"',
         )
 
+    def test_about_page_shows_story_4_1_content(self) -> None:
+        """Ensure the About page includes credits and MBTA acknowledgment."""
+        response = self.client.get(reverse("subway:about"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mike Woodward")
+        self.assertContains(response, "MBTA V3 API")
+        self.assertContains(response, "OpenStreetMap")
+        self.assertContains(response, "Leaflet.js")
+        self.assertContains(
+            response,
+            "Massachusetts Bay Transportation Authority data",
+        )
+        self.assertContains(
+            response,
+            'href="https://www.mbta.com/schedules/subway"',
+        )
+
 
 class MapFacilitiesPageTest(SimpleTestCase):
     """Verify the Map and Facilities page network map experience."""
