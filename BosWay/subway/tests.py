@@ -226,6 +226,35 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
             'src="/static/subway/js/trains_alerts.js"',
         )
 
+    def test_page_loads_leaflet_assets_for_the_initial_map(self) -> None:
+        """Ensure the trains page loads the Leaflet assets it needs."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        )
+        self.assertContains(
+            response,
+            "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        )
+
+    def test_trains_script_initializes_and_fits_the_startup_map(
+        self,
+    ) -> None:
+        """Ensure first-load JS creates a map and fits system bounds."""
+        script_path = finders.find("subway/js/trains_alerts.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn("const SUBWAY_SYSTEM_BOUNDS = [", script_text)
+        self.assertIn('window.L.map(mapElement, {', script_text)
+        self.assertIn("trainsMap.fitBounds(SUBWAY_SYSTEM_BOUNDS", script_text)
+        self.assertNotIn("window.L.polyline", script_text)
+        self.assertNotIn("window.L.circleMarker", script_text)
+
 
 class LineNamesAPIViewTest(SimpleTestCase):
     """Verify the subway line-name JSON endpoint."""

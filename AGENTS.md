@@ -18,6 +18,7 @@ python manage.py runserver
 - Use `BosWay/subway/templates/subway/` and `BosWay/subway/static/subway/` for app-owned templates and static assets.
 - Shared page navigation lives in `BosWay/subway/templates/subway/base.html`; page views should pass both `page_title` and `active_page` so the title stays `BosWay - <page>` and the correct nav tab is highlighted.
 - Page-specific frontend behavior should be loaded from each template's `page_scripts` block with a dedicated asset under `BosWay/subway/static/subway/js/` instead of inlining scripts into `base.html`.
+- When a page needs third-party frontend assets, add them with a page-specific `extra_head` block and/or that page's `page_scripts` block instead of loading them globally for the whole site.
 - When a page needs a full-width map layout, add a page-specific wrapper class in the template and keep the shared `page-content` shell generic instead of changing the centered card styles used by other pages.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
