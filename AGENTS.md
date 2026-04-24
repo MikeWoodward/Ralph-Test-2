@@ -19,6 +19,7 @@ python manage.py runserver
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
+- Keep Pydantic response models in `BosWay/subway/schemas.py`, and normalize raw `MBTA_class.py` payloads inside `BosWay/subway/services.py` before views consume them.
 - Startup MBTA initialization belongs in `BosWay/subway/apps.py` via `SubwayConfig.ready()` and must stay idempotent because Django can call `ready()` more than once in tests.
 
 ## Gotchas

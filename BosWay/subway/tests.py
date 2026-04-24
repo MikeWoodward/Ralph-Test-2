@@ -10,9 +10,16 @@ from django.test import SimpleTestCase
 from django.test import override_settings
 from django.urls import NoReverseMatch
 from django.urls import reverse
+from pydantic import ValidationError
 
 from subway import services
 from subway.apps import SubwayConfig
+from subway.schemas import AlertSchema
+from subway.schemas import FacilitySchema
+from subway.schemas import LineSchema
+from subway.schemas import PredictionSchema
+from subway.schemas import StationDetailSchema
+from subway.schemas import StationSummarySchema
 
 
 class ProjectSetupTest(SimpleTestCase):
@@ -174,3 +181,274 @@ class ServiceBootstrapTest(SimpleTestCase):
                 type(self).initialize_calls += 1
 
         return FakeMBTA
+
+
+class ServiceSchemaTest(SimpleTestCase):
+    """Verify schema-backed MBTA service helpers."""
+
+    def test_get_line_returns_validated_line_schema(self) -> None:
+        """Ensure line data is normalized into nested Pydantic models."""
+        fake_service = self._build_fake_mbta_service(
+            line_payload={
+                "line_color": "DA291C",
+                "shapes": [[(42.1, -71.1), (42.2, -71.2)]],
+                "stations": [
+                    {
+                        "station_id": "place-alfcl",
+                        "name": "Alewife",
+                        "latitude": 42.395428,
+                        "longitude": -71.142483,
+                        "address": "Alewife Brook Pkwy",
+                    },
+                ],
+            },
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            line = services.get_line(line_name="Red Line")
+
+        self.assertIsInstance(line, LineSchema)
+        self.assertIsNotNone(line)
+        self.assertEqual(line.name, "Red Line")
+        self.assertEqual(line.color, "DA291C")
+        self.assertIsInstance(line.stations[0], StationSummarySchema)
+        self.assertEqual(line.stations[0].station_id, "place-alfcl")
+
+    def test_get_station_returns_detail_with_lines_served(self) -> None:
+        """Ensure station detail includes computed line membership."""
+        fake_service = self._build_fake_mbta_service(
+            station_payload={
+                "id": "place-gover",
+                "name": "Government Center",
+                "latitude": 42.359705,
+                "longitude": -71.059215,
+                "address": "Cambridge St",
+                "facilities": ["ESCALATOR: Main lobby", "ELEVATOR: Court St"],
+            },
+            lines=[
+                {
+                    "name": "Blue Line",
+                    "stations": [{"station_id": "place-gover"}],
+                },
+                {
+                    "name": "Green Line",
+                    "stations": [{"id": "place-gover"}],
+                },
+            ],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            station = services.get_station(station_id="place-gover")
+
+        self.assertIsInstance(station, StationDetailSchema)
+        self.assertIsNotNone(station)
+        self.assertEqual(
+            station.lines_served,
+            ["Blue Line", "Green Line"],
+        )
+        self.assertEqual(
+            station.facilities,
+            ["ESCALATOR: Main lobby", "ELEVATOR: Court St"],
+        )
+
+    def test_get_station_facilities_returns_facility_schemas(self) -> None:
+        """Ensure facilities are validated into a dedicated schema type."""
+        fake_service = self._build_fake_mbta_service(
+            station_facilities=["ELEVATOR: Main entrance", "RAMP: Platform"],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            facilities = services.get_station_facilities(
+                station_id="place-pktrm",
+            )
+
+        self.assertEqual(len(facilities), 2)
+        self.assertTrue(
+            all(
+                isinstance(facility, FacilitySchema)
+                for facility in facilities
+            ),
+        )
+        self.assertEqual(facilities[0].label, "ELEVATOR: Main entrance")
+
+    def test_get_line_alerts_maps_nested_mbta_alert_fields(self) -> None:
+        """Ensure nested MBTA alert payloads are flattened consistently."""
+        fake_service = self._build_fake_mbta_service(
+            alert_payloads=[
+                {
+                    "id": "alert-1",
+                    "attributes": {
+                        "header": "Shuttle buses replace service",
+                        "description": "Use shuttle buses between stations.",
+                        "severity": 5,
+                    },
+                },
+            ],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            alerts = services.get_line_alerts(line_name="Orange Line")
+
+        self.assertEqual(len(alerts), 1)
+        self.assertIsInstance(alerts[0], AlertSchema)
+        self.assertEqual(alerts[0].headline, "Shuttle buses replace service")
+        self.assertEqual(alerts[0].severity, 5)
+
+    def test_get_predictions_maps_route_and_status_fields(self) -> None:
+        """Ensure prediction fields match the app schema contract."""
+        fake_service = self._build_fake_mbta_service(
+            prediction_payloads=[
+                {
+                    "route": "Red",
+                    "destination": "Alewife",
+                    "arrival_time": "2026-04-23T12:15:00Z",
+                    "departure_time": None,
+                    "comments": "Boarding",
+                },
+            ],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            predictions = services.get_predictions(
+                station_id="place-jfk",
+            )
+
+        self.assertEqual(len(predictions), 1)
+        self.assertIsInstance(predictions[0], PredictionSchema)
+        self.assertEqual(predictions[0].line, "Red")
+        self.assertEqual(predictions[0].status, "Boarding")
+
+    def test_get_line_raises_validation_error_for_invalid_station_data(
+        self,
+    ) -> None:
+        """Ensure invalid MBTA payloads fail validation quickly."""
+        fake_service = self._build_fake_mbta_service(
+            line_payload={
+                "line_color": "DA291C",
+                "shapes": [[(42.1, -71.1)]],
+                "stations": [
+                    {
+                        "station_id": "place-alfcl",
+                        "name": "Alewife",
+                        "latitude": "not-a-float",
+                        "longitude": -71.142483,
+                    },
+                ],
+            },
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            with self.assertRaises(ValidationError):
+                services.get_line(line_name="Red Line")
+
+    @staticmethod
+    def _build_fake_mbta_service(
+        *,
+        line_names: list[str] | None = None,
+        line_payload: dict[str, object] | None = None,
+        station_payload: dict[str, object] | None = None,
+        station_facilities: list[str] | None = None,
+        alert_payloads: list[dict[str, object]] | None = None,
+        prediction_payloads: list[dict[str, object]] | None = None,
+        lines: list[dict[str, object]] | None = None,
+    ) -> object:
+        """Create a fake MBTA client with predictable schema payloads.
+
+        Args:
+            line_names: Optional line-name list for name lookups.
+            line_payload: Optional raw line payload for `get_line`.
+            station_payload: Optional raw station payload for `get_station`.
+            station_facilities: Optional raw facilities list.
+            alert_payloads: Optional raw alerts list.
+            prediction_payloads: Optional raw predictions list.
+            lines: Optional cached line payloads for membership checks.
+
+        Returns:
+            A fake MBTA client object exposing the app's required methods.
+        """
+
+        class FakeMBTAService:
+            """Small stand-in for the shared MBTA service."""
+
+            def __init__(
+                self,
+            ) -> None:
+                """Store canned payloads for the service wrapper tests."""
+                self.lines = lines or []
+                self._line_names = line_names or []
+                self._line_payload = line_payload
+                self._station_payload = station_payload
+                self._station_facilities = station_facilities or []
+                self._alert_payloads = alert_payloads or []
+                self._prediction_payloads = prediction_payloads or []
+
+            def get_line_names(
+                self,
+            ) -> list[str]:
+                """Return the configured fake line names."""
+                return self._line_names
+
+            def get_line(
+                self,
+                *,
+                line_name: str,
+            ) -> dict[str, object] | None:
+                """Return the configured fake line payload."""
+                _ = line_name
+                return self._line_payload
+
+            def get_station(
+                self,
+                *,
+                station_id: str,
+            ) -> dict[str, object] | None:
+                """Return the configured fake station payload."""
+                _ = station_id
+                return self._station_payload
+
+            def get_station_facilities(
+                self,
+                *,
+                station_id: str,
+            ) -> list[str]:
+                """Return the configured fake station facilities."""
+                _ = station_id
+                return self._station_facilities
+
+            def get_line_alerts(
+                self,
+                *,
+                line_name: str,
+            ) -> list[dict[str, object]]:
+                """Return the configured fake line alerts."""
+                _ = line_name
+                return self._alert_payloads
+
+            def get_predictions(
+                self,
+                *,
+                station_id: str,
+            ) -> list[dict[str, object]]:
+                """Return the configured fake station predictions."""
+                _ = station_id
+                return self._prediction_payloads
+
+        return FakeMBTAService()
