@@ -295,6 +295,36 @@ h1 {
     color: #8c1d18;
 }
 
+.map-facilities-page {
+    width: min(100%, 72rem);
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.map-facilities-page__intro,
+.map-facilities-page__map-shell {
+    width: 100%;
+}
+
+.map-facilities-page__map-shell {
+    overflow: hidden;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 18px 48px rgba(16, 35, 58, 0.12);
+}
+
+.map-facilities-page__map {
+    min-height: 75vh;
+    margin: 1.25rem;
+    border-radius: 0.9rem;
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.6)),
+        linear-gradient(135deg, #dcecff 0%, #eef5fb 52%, #d9ede2 100%);
+    border: 1px solid #c7d8e6;
+}
+
 @media (max-width: 720px) {
     .site-header__inner {
         padding: 1rem 1.25rem;
@@ -313,6 +343,11 @@ h1 {
     }
 
     .trains-page__map {
+        min-height: 60vh;
+        margin: 1rem;
+    }
+
+    .map-facilities-page__map {
         min-height: 60vh;
         margin: 1rem;
     }

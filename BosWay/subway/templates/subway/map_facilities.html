@@ -1,12 +1,41 @@
 {% extends "subway/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+{% endblock extra_head %}
 
 {% block content %}
-    <section class="content-panel">
-        <p class="eyebrow">BosWay</p>
-        <h1 class="page-title">map &amp; facilities</h1>
-        <p class="page-copy">
-            Browse the subway system map and station facility details from the
-            same shared BosWay layout.
-        </p>
+    <section class="map-facilities-page">
+        <div class="map-facilities-page__intro content-panel">
+            <p class="eyebrow">BosWay</p>
+            <h1 class="page-title">map &amp; facilities</h1>
+            <p class="page-copy">
+                Browse the full subway network and station locations before
+                exploring facility details.
+            </p>
+        </div>
+
+        <section class="map-facilities-page__map-shell">
+            <div
+                id="map-facilities-map"
+                class="map-facilities-page__map"
+                aria-label="Map of the full MBTA subway network"
+            ></div>
+        </section>
     </section>
 {% endblock content %}
+
+{% block page_scripts %}
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script src="{% static 'subway/js/map_facilities.js' %}"></script>
+{% endblock page_scripts %}

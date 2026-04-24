@@ -156,6 +156,63 @@ class SharedPageLayoutTest(SimpleTestCase):
         )
 
 
+class MapFacilitiesPageTest(SimpleTestCase):
+    """Verify the Map and Facilities page network map experience."""
+
+    def test_page_renders_map_container_and_leaflet_assets(self) -> None:
+        """Ensure the page includes its map shell and Leaflet assets."""
+        response = self.client.get(reverse("subway:map_facilities"))
+        script_path = finders.find("subway/js/map_facilities.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(script_path)
+        self.assertContains(
+            response,
+            'id="map-facilities-map"',
+        )
+        self.assertContains(
+            response,
+            "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+        )
+        self.assertContains(
+            response,
+            "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        )
+        self.assertContains(
+            response,
+            'src="/static/subway/js/map_facilities.js"',
+        )
+
+    def test_stylesheet_gives_the_page_a_full_width_map_layout(self) -> None:
+        """Ensure the page-specific CSS reserves a large map area."""
+        stylesheet_path = finders.find("subway/css/style.css")
+
+        self.assertIsNotNone(stylesheet_path)
+        stylesheet_text = Path(stylesheet_path).read_text(encoding="utf-8")
+
+        self.assertIn(".map-facilities-page {", stylesheet_text)
+        self.assertIn(".map-facilities-page__map {", stylesheet_text)
+        self.assertIn("min-height: 75vh;", stylesheet_text)
+
+    def test_script_fetches_all_lines_draws_network_and_fits_bounds(
+        self,
+    ) -> None:
+        """Ensure startup JS renders the full system into one feature group."""
+        script_path = finders.find("subway/js/map_facilities.js")
+
+        self.assertIsNotNone(script_path)
+        script_text = Path(script_path).read_text(encoding="utf-8")
+
+        self.assertIn("const LINE_NAMES_ENDPOINT = ", script_text)
+        self.assertIn("Promise.all(", script_text)
+        self.assertIn("fetchLineDetail({ lineName })", script_text)
+        self.assertIn("window.L.polyline", script_text)
+        self.assertIn("window.L.circleMarker", script_text)
+        self.assertIn("window.L.featureGroup(renderedLayers)", script_text)
+        self.assertIn("mapFacilitiesMap.fitBounds(", script_text)
+        self.assertIn("networkLayerGroup.getBounds()", script_text)
+
+
 class TrainsAlertsLayoutTest(SimpleTestCase):
     """Verify the initial Trains and Alerts page layout."""
 
