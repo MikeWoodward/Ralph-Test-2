@@ -39,6 +39,7 @@ python manage.py runserver
 - For schema-backed detail endpoints such as `api/lines/<str:line_name>`, return `JsonResponse(schema.model_dump(mode="json"))` so nested tuples serialize cleanly to JSON arrays.
 - For list endpoints that can legitimately return an empty list, validate the parent resource first (`get_line()` or `get_station()`) so the view can still return JSON `404` for unknown IDs instead of treating missing resources as empty data.
 - Validate public `line_name` and `station_id` path inputs in `BosWay/subway/views.py` before detail lookups: reject malformed values with JSON `400`, reject unknown-but-well-formed values with JSON `404`, and use the cached allowlists in `BosWay/subway/services.py` to avoid unnecessary MBTA detail calls.
+- When `README.md` documents browser dependencies loaded from third-party CDNs, document the library license/version and the delivery service terms separately; a CDN such as `unpkg` is a distinct external service from the hosted library itself.
 
 ## Gotchas
 - `STATICFILES_DIRS` points at `BosWay/static/`; keep that directory present or Django will raise `staticfiles.W004` during `manage.py check` and tests.

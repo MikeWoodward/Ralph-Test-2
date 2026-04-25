@@ -7,7 +7,8 @@ page-specific JavaScript clients.
 
 ## Author
 
-**Mike Woodward**
+**Mike Woodward**  
+Author and maintainer of BosWay.
 
 ## How BosWay Works
 
@@ -172,12 +173,12 @@ requirements.txt                 Python dependencies
 
 ### Python (3.12)
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| Django | 6.0.3 | Web framework — serves pages and JSON API endpoints |
-| Pydantic | 2.12.5 | Data validation — schemas for API responses |
-| requests | 2.32.5 | HTTP client — calls to the MBTA V3 API |
-| python-dotenv | 1.2.2 | Environment variables — loads `.env` for API key |
+| Library | Version | Purpose | License |
+|---------|---------|---------|---------|
+| Django | 6.0.3 | Web framework — serves pages and JSON API endpoints | [BSD 3-Clause](https://github.com/django/django/blob/main/LICENSE) |
+| Pydantic | 2.12.5 | Data validation — schemas for API responses | [MIT](https://github.com/pydantic/pydantic/blob/main/LICENSE) |
+| requests | 2.32.5 | HTTP client — calls to the MBTA V3 API | [Apache 2.0](https://github.com/psf/requests/blob/main/LICENSE) |
+| python-dotenv | 1.2.2 | Environment variables — loads `.env` for API key | [BSD 3-Clause](https://github.com/theskumar/python-dotenv/blob/main/LICENSE) |
 
 Transitive dependencies (installed automatically):
 
@@ -196,36 +197,69 @@ Transitive dependencies (installed automatically):
 
 ### JavaScript (browser, via CDN)
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| Leaflet.js | 1.9.4 | Interactive map rendering and controls |
+| Library | Version | Purpose | License |
+|---------|---------|---------|---------|
+| Leaflet.js | 1.9.4 | Interactive map rendering and controls | [BSD 2-Clause](https://github.com/Leaflet/Leaflet/blob/main/LICENSE) |
+
+### Source-integrated dependency
+
+| Dependency | Version / Source | Purpose |
+|------------|------------------|---------|
+| `MBTA-API/MBTA_class.py` | Sibling checkout outside this repo; version not pinned here | The only backend bridge to MBTA subway lines, stations, alerts, predictions, and facilities |
 
 ## External Services
 
-| Service | Purpose | Terms of Service |
-|---------|---------|------------------|
-| **MBTA V3 API** | Real-time subway data: lines, stations, alerts, predictions | [MBTA Developers License Agreement](https://www.mbta.com/developers/v3-api) |
-| **OpenStreetMap** | Base map tile imagery | [ODbL License & Tile Usage Policy](https://www.openstreetmap.org/copyright) |
-| **Leaflet.js** | Client-side map rendering library | [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE) |
+| Service | Purpose | Terms / Policy |
+|---------|---------|----------------|
+| **MBTA V3 API** | Supplies live subway line, station, alert, and prediction data to the server-side MBTA client | [MBTA developer portal](https://www.mbta.com/developers/v3-api) and the [MassDOT Developers License Agreement](https://www.mass.gov/doc/massdot-developers-license-agreement-0/download) |
+| **OpenStreetMap** | Supplies the browser basemap tiles and attribution-backed map data references | [Copyright and attribution page](https://www.openstreetmap.org/copyright) and the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) |
+| **UNPKG CDN** | Delivers the pinned Leaflet `1.9.4` CSS and JavaScript assets used by the two map pages | [Sideway Terms of Service](https://app.unpkg.com/policies@1.0.1/files/terms-of-service.md) and [Usage Rules](https://app.unpkg.com/policies@1.0.1/files/usage-rules.md) |
 
-### Compliance Notes
+## Compliance Notes
 
-- **MBTA V3 API**: Data is used in accordance with the
-  [MassDOT Developers License Agreement](https://www.mass.gov/doc/massdot-developers-license-agreement-0/download).
-  The API key is stored in a `.env` file and never exposed to end users or
-  committed to version control. MBTA data attribution (linking to the API page)
-  is displayed in the Leaflet attribution control on every map view.
-- **OpenStreetMap**: "© OpenStreetMap contributors" attribution with a link to
-  the [copyright page](https://www.openstreetmap.org/copyright) is displayed
-  on every map view via Leaflet's built-in attribution control. Tile usage
-  follows the OSM Foundation
-  [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
-  Data is licensed under the
-  [Open Data Commons Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL).
-- **Leaflet.js**: Used under the
+- **Django 6.0.3**: Used under the
+  [BSD 3-Clause License](https://github.com/django/django/blob/main/LICENSE).
+  BosWay uses Django as an application framework only; no additional runtime
+  attribution is required, but the license must remain intact if the project is
+  redistributed with vendored framework code.
+- **Pydantic 2.12.5**: Used under the
+  [MIT License](https://github.com/pydantic/pydantic/blob/main/LICENSE).
+  The app relies on Pydantic for response validation and should preserve the
+  upstream license notice in any redistributed bundled copy.
+- **requests 2.32.5**: Used under the
+  [Apache License 2.0](https://github.com/psf/requests/blob/main/LICENSE).
+  BosWay uses it server-side through the sibling MBTA client, and any
+  redistribution of bundled source should keep the Apache license text and
+  notices.
+- **python-dotenv 1.2.2**: Used under the
+  [BSD 3-Clause License](https://github.com/theskumar/python-dotenv/blob/main/LICENSE).
+  It is used only to load the repo-root `.env` on the server, and any bundled
+  redistribution should preserve the upstream license notice.
+- **Leaflet.js 1.9.4**: Used under the
   [BSD 2-Clause License](https://github.com/Leaflet/Leaflet/blob/main/LICENSE).
-  Loaded from the unpkg CDN with subresource integrity (SRI) hashes. Leaflet
-  attribution is automatically shown in the map control.
+  BosWay loads the exact `1.9.4` assets from UNPKG with subresource integrity
+  hashes on the two map pages instead of vendoring local copies.
+- **`MBTA-API/MBTA_class.py`**: BosWay imports this sibling source file as its
+  only MBTA backend integration path. This repository does not pin or vendor a
+  release of that project, so any packaged redistribution should review the
+  sibling project's own licensing and usage terms before bundling it.
+- **MBTA V3 API**: Data use is governed by the
+  [MassDOT Developers License Agreement](https://www.mass.gov/doc/massdot-developers-license-agreement-0/download).
+  The API key stays in the server-side `.env` file, never appears in templates,
+  JavaScript, or JSON responses, and BosWay acknowledges MBTA usage in the
+  About page and this README.
+- **OpenStreetMap**: The map pages display the required
+  [OpenStreetMap attribution](https://www.openstreetmap.org/copyright)
+  in Leaflet's attribution control, and tile usage follows the
+  [OSM Foundation tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+  OpenStreetMap data remains subject to the
+  [ODbL](https://opendatacommons.org/licenses/odbl/).
+- **UNPKG CDN**: BosWay uses pinned asset URLs plus SRI hashes for Leaflet's
+  browser assets and depends on UNPKG only as a static delivery service. Use of
+  that CDN remains subject to Sideway's published
+  [Terms of Service](https://app.unpkg.com/policies@1.0.1/files/terms-of-service.md)
+  and
+  [Usage Rules](https://app.unpkg.com/policies@1.0.1/files/usage-rules.md).
 
 ## Setup and Running
 
