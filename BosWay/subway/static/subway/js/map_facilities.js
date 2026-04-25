@@ -65,6 +65,119 @@ const getLineDetailEndpoint = ({ lineName }) =>
 const getStationDetailEndpoint = ({ stationId }) =>
     `${STATION_ENDPOINT_BASE}${encodeURIComponent(stationId)}`;
 
+const isFiniteCoordinateValue = (value) =>
+    typeof value === "number" && Number.isFinite(value);
+
+const parseCoordinatePair = ({ coordinatePair, context }) => {
+    if (!Array.isArray(coordinatePair) || coordinatePair.length !== 2) {
+        throw new TypeError(`${context} must contain [latitude, longitude].`);
+    }
+
+    const [latitude, longitude] = coordinatePair;
+
+    if (
+        !isFiniteCoordinateValue(latitude) ||
+        !isFiniteCoordinateValue(longitude)
+    ) {
+        throw new TypeError(`${context} must contain finite coordinates.`);
+    }
+
+    return [latitude, longitude];
+};
+
+const parseShapeList = ({ shapes }) => {
+    if (!Array.isArray(shapes)) {
+        throw new TypeError("Expected the line detail payload to include shapes.");
+    }
+
+    return shapes.map((shapeCoordinates, shapeIndex) => {
+        if (!Array.isArray(shapeCoordinates)) {
+            throw new TypeError(
+                `Line shape ${shapeIndex + 1} must be an array of coordinates.`,
+            );
+        }
+
+        return shapeCoordinates.map((coordinatePair, coordinateIndex) =>
+            parseCoordinatePair({
+                coordinatePair,
+                context:
+                    `Line shape ${shapeIndex + 1}, coordinate ` +
+                    `${coordinateIndex + 1}`,
+            }),
+        );
+    });
+};
+
+const parseStationSummary = ({ station, stationIndex }) => {
+    if (
+        typeof station !== "object" ||
+        station === null ||
+        Array.isArray(station)
+    ) {
+        throw new TypeError(
+            `Station ${stationIndex + 1} must be an object payload.`,
+        );
+    }
+
+    const stationName =
+        typeof station.name === "string" && station.name.trim()
+            ? station.name.trim()
+            : "Selected station";
+
+    if (
+        !isFiniteCoordinateValue(station.latitude) ||
+        !isFiniteCoordinateValue(station.longitude)
+    ) {
+        throw new TypeError(
+            `Station ${stationIndex + 1} must include finite coordinates.`,
+        );
+    }
+
+    return {
+        latitude: station.latitude,
+        longitude: station.longitude,
+        name: stationName,
+        station_id:
+            typeof station.station_id === "string"
+                ? station.station_id.trim()
+                : "",
+    };
+};
+
+const parseLineDetailPayload = ({ lineData, requestedLineName }) => {
+    if (
+        typeof lineData !== "object" ||
+        lineData === null ||
+        Array.isArray(lineData)
+    ) {
+        throw new TypeError(
+            "Expected the line detail endpoint to return an object.",
+        );
+    }
+
+    return {
+        color:
+            typeof lineData.color === "string" ? lineData.color.trim() : "",
+        name:
+            typeof lineData.name === "string" && lineData.name.trim()
+                ? lineData.name.trim()
+                : requestedLineName,
+        shapes: parseShapeList({ shapes: lineData.shapes }),
+        stations: Array.isArray(lineData.stations)
+            ? lineData.stations.map((station, stationIndex) =>
+                  parseStationSummary({
+                      station,
+                      stationIndex,
+                  }),
+              )
+            : (() => {
+                  throw new TypeError(
+                      "Expected the line detail payload to include stations.",
+                  );
+              })(),
+    };
+};
+
 const fetchLineNames = async () => {
     const response = await fetch(LINE_NAMES_ENDPOINT, {
         headers: {
@@ -103,7 +216,11 @@ const fetchLineDetail = async ({ lineName }) => {
         );
     }
 
-    return response.json();
+    const lineData = await response.json();
+    return parseLineDetailPayload({
+        lineData,
+        requestedLineName: lineName,
+    });
 };
 
 const fetchStationDetail = async ({ stationId }) => {
@@ -600,13 +717,23 @@ const loadAndRenderFullNetwork = async () => {
         return;
     }
 
-    const lineDetails = await Promise.all(
+    const lineDetailResults = await Promise.allSettled(
         lineNames.map((lineName) => fetchLineDetail({ lineName })),
     );
-
-    const validLineDetails = lineDetails.filter(
-        (lineData) => typeof lineData === "object" && lineData !== null,
+    const validLineDetails = lineDetailResults.flatMap((lineDetailResult) =>
+        lineDetailResult.status === "fulfilled" ? [lineDetailResult.value] : [],
     );
+
+    if (validLineDetails.length === 0) {
+        throw new Error("Unable to load any subway line details.");
+    }
+
+    if (validLineDetails.length !== lineNames.length) {
+        reportMapFacilitiesError({
+            message: "Unable to load one or more subway line details.",
+            error: new Error("Rendered a partial subway network."),
+        });
+    }
 
     renderLegend({ lineDetails: validLineDetails });
     renderFullNetwork({ lineDetails: validLineDetails });

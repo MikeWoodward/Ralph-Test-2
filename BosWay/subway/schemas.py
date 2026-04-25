@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel
 from pydantic import ConfigDict
 
@@ -69,6 +71,6 @@ class PredictionSchema(BaseModel):
 
     line: str
     destination: str
-    arrival_time: str | None = None
-    departure_time: str | None = None
+    arrival_time: datetime | None = None
+    departure_time: datetime | None = None
     status: str | None = None

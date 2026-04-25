@@ -34,11 +34,14 @@ python manage.py runserver
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
 - Keep Pydantic response models in `BosWay/subway/schemas.py`, and normalize raw `MBTA_class.py` payloads inside `BosWay/subway/services.py` before views consume them.
+- In `BosWay/subway/services.py`, guard raw MBTA payload boundaries with small mapping/list validators before normalizing into schemas so malformed upstream data fails clearly instead of triggering attribute errors mid-transform.
+- Keep `PredictionSchema` time fields as validated datetimes and serialize API responses with `model_dump(mode="json")` so frontend code receives normalized timestamp strings.
 - Startup MBTA initialization belongs in `BosWay/subway/apps.py` via `SubwayConfig.ready()` and must stay idempotent because Django can call `ready()` more than once in tests.
 - When a JSON endpoint returns a top-level list for frontend code, use `JsonResponse(..., safe=False)` and keep the view response shape identical to the service output.
 - For schema-backed detail endpoints such as `api/lines/<str:line_name>`, return `JsonResponse(schema.model_dump(mode="json"))` so nested tuples serialize cleanly to JSON arrays.
 - For list endpoints that can legitimately return an empty list, validate the parent resource first (`get_line()` or `get_station()`) so the view can still return JSON `404` for unknown IDs instead of treating missing resources as empty data.
 - Validate public `line_name` and `station_id` path inputs in `BosWay/subway/views.py` before detail lookups: reject malformed values with JSON `400`, reject unknown-but-well-formed values with JSON `404`, and use the cached allowlists in `BosWay/subway/services.py` to avoid unnecessary MBTA detail calls.
+- For frontend consumers of `/api/lines/<line_name>`, validate the parsed JSON object, shapes array, and station coordinates before passing data into Leaflet, and clear any active route layer before showing a line-load error so stale geometry does not linger on the map.
 - When `README.md` documents browser dependencies loaded from third-party CDNs, document the library license/version and the delivery service terms separately; a CDN such as `unpkg` is a distinct external service from the hosted library itself.
 
 ## Gotchas

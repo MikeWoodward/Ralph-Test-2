@@ -186,8 +186,17 @@ def line_names(
         A JSON array of subway line display names.
     """
     _ = request
+    try:
+        line_names_list = services.get_line_names()
+    except Exception as error:  # pragma: no cover - exercised via tests
+        _log_view_exception(exception=error)
+        return JsonResponse(
+            {"error": "Unable to load line names."},
+            status=500,
+        )
+
     return JsonResponse(
-        services.get_line_names(),
+        line_names_list,
         safe=False,
     )
 

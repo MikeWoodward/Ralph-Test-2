@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import importlib.util
 import linecache
 import logging
@@ -9,7 +10,8 @@ import re
 from pathlib import Path
 from threading import Lock
 from types import ModuleType
-from typing import Any
+from typing import Protocol
+from typing import cast
 
 from dotenv import load_dotenv
 
@@ -30,8 +32,62 @@ _PUBLIC_STATION_ID_PATTERN = re.compile(
     flags=re.ASCII,
 )
 
-_MBTA_CLASS: type[Any] | None = None
-_MBTA_SERVICE: Any | None = None
+RawMapping = Mapping[str, object]
+
+
+class MBTAServiceProtocol(Protocol):
+    """Describe the MBTA client interface used by the app."""
+
+    lines: list[RawMapping]
+
+    def initialize(
+        self,
+    ) -> None:
+        """Populate the cached MBTA subway data."""
+
+    def get_line_names(
+        self,
+    ) -> list[str]:
+        """Return the available subway line display names."""
+
+    def get_line(
+        self,
+        *,
+        line_name: str,
+    ) -> RawMapping | None:
+        """Return one raw subway line payload."""
+
+    def get_station(
+        self,
+        *,
+        station_id: str,
+    ) -> RawMapping | None:
+        """Return one raw station detail payload."""
+
+    def get_station_facilities(
+        self,
+        *,
+        station_id: str,
+    ) -> list[str] | None:
+        """Return one station's facility labels."""
+
+    def get_line_alerts(
+        self,
+        *,
+        line_name: str,
+    ) -> list[RawMapping]:
+        """Return raw alert payloads for one subway line."""
+
+    def get_predictions(
+        self,
+        *,
+        station_id: str,
+    ) -> list[RawMapping]:
+        """Return raw prediction payloads for one station."""
+
+
+_MBTA_CLASS: type[MBTAServiceProtocol] | None = None
+_MBTA_SERVICE: MBTAServiceProtocol | None = None
 _MBTA_INITIALIZED = False
 _SERVICE_LOCK = Lock()
 _INITIALIZE_LOCK = Lock()
@@ -117,7 +173,95 @@ def _load_mbta_module() -> ModuleType:
     return mbta_module
 
 
-def _load_mbta_class() -> type[Any]:
+def _as_mapping(
+    *,
+    value: object,
+    context: str,
+) -> RawMapping:
+    """Return a validated mapping payload from the MBTA client.
+
+    Args:
+        value: The candidate payload to validate.
+        context: Human-readable context for error messages.
+
+    Returns:
+        The validated mapping payload.
+
+    Raises:
+        TypeError: If the value is not a mapping.
+    """
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{context} must be a mapping.")
+
+    return value
+
+
+def _as_mapping_list(
+    *,
+    value: object,
+    context: str,
+) -> list[RawMapping]:
+    """Return a validated list of mapping payloads.
+
+    Args:
+        value: The candidate list to validate.
+        context: Human-readable context for error messages.
+
+    Returns:
+        A list of validated mapping payloads.
+
+    Raises:
+        TypeError: If the value is not a list of mappings.
+    """
+    if value is None:
+        return []
+
+    if not isinstance(value, list):
+        raise TypeError(f"{context} must be a list.")
+
+    return [
+        _as_mapping(
+            value=item,
+            context=f"{context}[{index}]",
+        )
+        for index, item in enumerate(value)
+    ]
+
+
+def _as_string_list(
+    *,
+    value: object,
+    context: str,
+) -> list[str]:
+    """Return a validated list of strings.
+
+    Args:
+        value: The candidate list to validate.
+        context: Human-readable context for error messages.
+
+    Returns:
+        A list of validated strings.
+
+    Raises:
+        TypeError: If the value is not a list of strings.
+    """
+    if value is None:
+        return []
+
+    if not isinstance(value, list):
+        raise TypeError(f"{context} must be a list.")
+
+    string_values: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise TypeError(f"{context}[{index}] must be a string.")
+
+        string_values.append(item)
+
+    return string_values
+
+
+def _load_mbta_class() -> type[MBTAServiceProtocol]:
     """Return the MBTA class from the sibling MBTA project.
 
     Returns:
@@ -126,12 +270,16 @@ def _load_mbta_class() -> type[Any]:
     global _MBTA_CLASS
 
     if _MBTA_CLASS is None:
-        _MBTA_CLASS = _load_mbta_module().MBTA
+        mbta_class = getattr(_load_mbta_module(), "MBTA", None)
+        if mbta_class is None:
+            raise ImportError("The sibling MBTA module does not define MBTA.")
+
+        _MBTA_CLASS = cast(type[MBTAServiceProtocol], mbta_class)
 
     return _MBTA_CLASS
 
 
-def get_mbta_service() -> Any:
+def get_mbta_service() -> MBTAServiceProtocol:
     """Return the shared MBTA client instance for the app.
 
     Returns:
@@ -155,7 +303,7 @@ def get_mbta_service() -> Any:
     return _MBTA_SERVICE
 
 
-def initialize_service() -> Any:
+def initialize_service() -> MBTAServiceProtocol:
     """Initialize the shared MBTA client once at startup.
 
     Returns:
@@ -182,7 +330,7 @@ def initialize_service() -> Any:
 
 def _station_identifier(
     *,
-    station_data: dict[str, Any],
+    station_data: RawMapping,
 ) -> str:
     """Return a normalized station identifier from raw MBTA data.
 
@@ -201,7 +349,7 @@ def _station_identifier(
 
 def _normalize_station_summary(
     *,
-    station_data: dict[str, Any],
+    station_data: RawMapping,
 ) -> StationSummarySchema:
     """Validate a raw station summary payload.
 
@@ -245,7 +393,7 @@ def _normalize_facility_labels(
 def _get_lines_served(
     *,
     station_id: str,
-    mbta_service: Any,
+    mbta_service: MBTAServiceProtocol,
 ) -> list[str]:
     """Return the subway lines that include a station in cached line data.
 
@@ -258,10 +406,16 @@ def _get_lines_served(
     """
     lines_served = [
         str(line.get("name") or "")
-        for line in mbta_service.lines
+        for line in _as_mapping_list(
+            value=mbta_service.lines,
+            context="MBTA lines cache",
+        )
         if any(
             _station_identifier(station_data=station_data) == station_id
-            for station_data in line.get("stations", [])
+            for station_data in _as_mapping_list(
+                value=line.get("stations"),
+                context="MBTA line stations",
+            )
         )
     ]
     return sorted(
@@ -275,7 +429,7 @@ def _get_lines_served(
 
 def _known_line_names(
     *,
-    mbta_service: Any,
+    mbta_service: MBTAServiceProtocol,
 ) -> set[str]:
     """Return the initialized allowlist of subway line names.
 
@@ -287,7 +441,10 @@ def _known_line_names(
     """
     line_names_from_cache = {
         str(line.get("name") or "").strip()
-        for line in getattr(mbta_service, "lines", [])
+        for line in _as_mapping_list(
+            value=getattr(mbta_service, "lines", []),
+            context="MBTA lines cache",
+        )
         if str(line.get("name") or "").strip()
     }
     if line_names_from_cache:
@@ -302,7 +459,7 @@ def _known_line_names(
 
 def _known_station_ids(
     *,
-    mbta_service: Any,
+    mbta_service: MBTAServiceProtocol,
 ) -> set[str]:
     """Return the initialized allowlist of subway station identifiers.
 
@@ -314,8 +471,14 @@ def _known_station_ids(
     """
     return {
         station_id
-        for line in getattr(mbta_service, "lines", [])
-        for station_data in line.get("stations", [])
+        for line in _as_mapping_list(
+            value=getattr(mbta_service, "lines", []),
+            context="MBTA lines cache",
+        )
+        for station_data in _as_mapping_list(
+            value=line.get("stations"),
+            context="MBTA line stations",
+        )
         if (
             station_id := _station_identifier(
                 station_data=station_data,
@@ -393,7 +556,10 @@ def get_line_names() -> list[str]:
         A sorted list of display names for the MBTA subway lines.
     """
     mbta_service = initialize_service()
-    line_names = mbta_service.get_line_names()
+    line_names = _as_string_list(
+        value=mbta_service.get_line_names(),
+        context="MBTA line names",
+    )
     return sorted(
         [
             str(line_name)
@@ -420,15 +586,22 @@ def get_line(
     if raw_line is None:
         return None
 
+    raw_line_mapping = _as_mapping(
+        value=raw_line,
+        context="MBTA line detail payload",
+    )
     stations = [
         _normalize_station_summary(station_data=station_data)
-        for station_data in raw_line.get("stations", [])
+        for station_data in _as_mapping_list(
+            value=raw_line_mapping.get("stations"),
+            context="MBTA line stations",
+        )
     ]
     return LineSchema.model_validate(
         {
             "name": line_name,
-            "color": raw_line.get("line_color") or "",
-            "shapes": raw_line.get("shapes") or [],
+            "color": raw_line_mapping.get("line_color") or "",
+            "shapes": raw_line_mapping.get("shapes") or [],
             "stations": stations,
         },
     )
@@ -451,18 +624,25 @@ def get_station(
     if raw_station is None:
         return None
 
+    raw_station_mapping = _as_mapping(
+        value=raw_station,
+        context="MBTA station detail payload",
+    )
     facilities = _normalize_facility_labels(
-        facility_labels=list(raw_station.get("facilities") or []),
+        facility_labels=_as_string_list(
+            value=raw_station_mapping.get("facilities"),
+            context="MBTA station facilities",
+        ),
     )
     return StationDetailSchema.model_validate(
         {
             "station_id": _station_identifier(
-                station_data=raw_station,
+                station_data=raw_station_mapping,
             ),
-            "name": raw_station.get("name") or "",
-            "latitude": raw_station.get("latitude"),
-            "longitude": raw_station.get("longitude"),
-            "address": raw_station.get("address") or None,
+            "name": raw_station_mapping.get("name") or "",
+            "latitude": raw_station_mapping.get("latitude"),
+            "longitude": raw_station_mapping.get("longitude"),
+            "address": raw_station_mapping.get("address") or None,
             "lines_served": _get_lines_served(
                 station_id=station_id,
                 mbta_service=mbta_service,
@@ -488,11 +668,14 @@ def get_station_facilities(
         A validated list of station facility schemas.
     """
     mbta_service = initialize_service()
-    facility_labels = mbta_service.get_station_facilities(
-        station_id=station_id,
+    facility_labels = _as_string_list(
+        value=mbta_service.get_station_facilities(
+            station_id=station_id,
+        ),
+        context="MBTA station facilities",
     )
     return _normalize_facility_labels(
-        facility_labels=list(facility_labels or []),
+        facility_labels=facility_labels,
     )
 
 
@@ -509,23 +692,35 @@ def get_line_alerts(
         A validated list of alerts for the given line.
     """
     mbta_service = initialize_service()
-    raw_alerts = mbta_service.get_line_alerts(line_name=line_name)
+    raw_alerts = _as_mapping_list(
+        value=mbta_service.get_line_alerts(line_name=line_name),
+        context="MBTA line alerts",
+    )
     return [
         AlertSchema.model_validate(
             {
                 "id": raw_alert.get("id") or "",
                 "headline": (
                     raw_alert.get("headline")
-                    or raw_alert.get("attributes", {}).get("header")
+                    or _as_mapping(
+                        value=raw_alert.get("attributes") or {},
+                        context="MBTA alert attributes",
+                    ).get("header")
                     or ""
                 ),
                 "description": (
                     raw_alert.get("description")
-                    or raw_alert.get("attributes", {}).get("description")
+                    or _as_mapping(
+                        value=raw_alert.get("attributes") or {},
+                        context="MBTA alert attributes",
+                    ).get("description")
                 ),
                 "severity": (
                     raw_alert.get("severity")
-                    or raw_alert.get("attributes", {}).get("severity")
+                    or _as_mapping(
+                        value=raw_alert.get("attributes") or {},
+                        context="MBTA alert attributes",
+                    ).get("severity")
                 ),
             },
         )
@@ -546,7 +741,10 @@ def get_predictions(
         A validated list of upcoming subway predictions.
     """
     mbta_service = initialize_service()
-    raw_predictions = mbta_service.get_predictions(station_id=station_id)
+    raw_predictions = _as_mapping_list(
+        value=mbta_service.get_predictions(station_id=station_id),
+        context="MBTA station predictions",
+    )
     return [
         PredictionSchema.model_validate(
             {

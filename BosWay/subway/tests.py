@@ -1,5 +1,7 @@
 """Focused tests for the BosWay project scaffold."""
 
+from datetime import UTC
+from datetime import datetime
 import importlib
 from pathlib import Path
 from unittest.mock import patch
@@ -239,7 +241,8 @@ class MapFacilitiesPageTest(SimpleTestCase):
         script_text = Path(script_path).read_text(encoding="utf-8")
 
         self.assertIn("const LINE_NAMES_ENDPOINT = ", script_text)
-        self.assertIn("Promise.all(", script_text)
+        self.assertIn("const parseLineDetailPayload = ", script_text)
+        self.assertIn("Promise.allSettled(", script_text)
         self.assertIn("fetchLineDetail({ lineName })", script_text)
         self.assertIn("window.L.polyline", script_text)
         self.assertIn("window.L.circleMarker", script_text)
@@ -492,6 +495,7 @@ class TrainsAlertsLayoutTest(SimpleTestCase):
 
         self.assertIn('lineSelect.addEventListener("change"', script_text)
         self.assertIn("const LINE_DETAIL_ENDPOINT_BASE = ", script_text)
+        self.assertIn("const parseLineDetailPayload = ", script_text)
         self.assertIn("encodeURIComponent(lineName)", script_text)
         self.assertIn("selectedLineLayerGroup.remove()", script_text)
         self.assertIn("window.L.polyline", script_text)
@@ -637,6 +641,20 @@ class LineNamesAPIViewTest(SimpleTestCase):
         self.assertJSONEqual(
             response.content.decode("utf-8"),
             [],
+        )
+
+    def test_line_names_endpoint_returns_500_when_service_errors(self) -> None:
+        """Ensure line-name failures become JSON 500 responses."""
+        with patch(
+            "subway.views.services.get_line_names",
+            side_effect=RuntimeError("mbta unavailable"),
+        ):
+            response = self.client.get(reverse("subway:line_names"))
+
+        self.assertEqual(response.status_code, 500)
+        self.assertJSONEqual(
+            response.content.decode("utf-8"),
+            {"error": "Unable to load line names."},
         )
 
 
@@ -1082,15 +1100,7 @@ class StationPredictionsAPIViewTest(SimpleTestCase):
         self.assertEqual(response["Content-Type"], "application/json")
         self.assertJSONEqual(
             response.content.decode("utf-8"),
-            [
-                {
-                    "line": "Red",
-                    "destination": "Alewife",
-                    "arrival_time": "2026-04-23T12:15:00Z",
-                    "departure_time": None,
-                    "status": "Boarding",
-                },
-            ],
+            [prediction_schemas[0].model_dump(mode="json")],
         )
         get_predictions_mock.assert_called_once_with(
             station_id="place-jfk",
@@ -1399,6 +1409,17 @@ class ServiceSchemaTest(SimpleTestCase):
         self.assertIsInstance(predictions[0], PredictionSchema)
         self.assertEqual(predictions[0].line, "Red")
         self.assertEqual(predictions[0].status, "Boarding")
+        self.assertEqual(
+            predictions[0].arrival_time,
+            datetime(
+                2026,
+                4,
+                23,
+                12,
+                15,
+                tzinfo=UTC,
+            ),
+        )
 
     def test_public_input_format_validators_reject_malformed_values(
         self,
@@ -1478,6 +1499,48 @@ class ServiceSchemaTest(SimpleTestCase):
         ):
             with self.assertRaises(ValidationError):
                 services.get_line(line_name="Red Line")
+
+    def test_get_line_raises_type_error_for_non_list_station_payload(
+        self,
+    ) -> None:
+        """Ensure malformed station collections fail with a clear error."""
+        fake_service = self._build_fake_mbta_service(
+            line_payload={
+                "line_color": "DA291C",
+                "shapes": [[(42.1, -71.1)]],
+                "stations": "not-a-list",
+            },
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            with self.assertRaises(TypeError):
+                services.get_line(line_name="Red Line")
+
+    def test_get_predictions_rejects_invalid_timestamp_strings(
+        self,
+    ) -> None:
+        """Ensure malformed prediction times fail schema validation."""
+        fake_service = self._build_fake_mbta_service(
+            prediction_payloads=[
+                {
+                    "route": "Red",
+                    "destination": "Alewife",
+                    "arrival_time": "not-a-timestamp",
+                    "departure_time": None,
+                    "comments": "Boarding",
+                },
+            ],
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            with self.assertRaises(ValidationError):
+                services.get_predictions(station_id="place-jfk")
 
     @staticmethod
     def _build_fake_mbta_service(
