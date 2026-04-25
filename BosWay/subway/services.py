@@ -487,6 +487,79 @@ def _known_station_ids(
     }
 
 
+def _find_cached_line(
+    *,
+    line_name: str,
+    mbta_service: MBTAServiceProtocol,
+) -> RawMapping | None:
+    """Return one cached raw line mapping by display name."""
+    for line_data in _as_mapping_list(
+        value=getattr(mbta_service, "lines", []),
+        context="MBTA lines cache",
+    ):
+        if str(line_data.get("name") or "").strip() == line_name:
+            return line_data
+
+    return None
+
+
+def _alert_severity_value(
+    *,
+    raw_alert: RawMapping,
+) -> int:
+    """Return a sortable integer severity for one raw alert payload."""
+    attributes = _as_mapping(
+        value=raw_alert.get("attributes") or {},
+        context="MBTA alert attributes",
+    )
+    severity = raw_alert.get("severity") or attributes.get("severity")
+    return severity if isinstance(severity, int) else 0
+
+
+def _get_line_alerts_from_cached_routes(
+    *,
+    line_name: str,
+    mbta_service: MBTAServiceProtocol,
+) -> list[RawMapping]:
+    """Rebuild raw line alerts from cached route IDs.
+
+    This fallback keeps the endpoint working when the upstream MBTA client
+    raises during its internal alert sorting for lines that contain `None`
+    severities.
+    """
+    cached_line = _find_cached_line(
+        line_name=line_name,
+        mbta_service=mbta_service,
+    )
+    if cached_line is None:
+        return []
+
+    route_alert_fetcher = getattr(mbta_service, "_get_route_alerts", None)
+    if not callable(route_alert_fetcher):
+        raise TypeError("MBTA service does not expose route alert fallback.")
+
+    raw_alerts: list[RawMapping] = []
+    route_ids = _as_string_list(
+        value=cached_line.get("route_id"),
+        context="MBTA line route IDs",
+    )
+    for route_id in route_ids:
+        raw_alerts.extend(
+            _as_mapping_list(
+                value=route_alert_fetcher(route=route_id),
+                context=f"MBTA route alerts for {route_id}",
+            ),
+        )
+
+    return sorted(
+        raw_alerts,
+        key=lambda raw_alert: (
+            _alert_severity_value(raw_alert=raw_alert),
+            str(raw_alert.get("id") or ""),
+        ),
+    )
+
+
 def is_public_line_name_format_valid(
     *,
     line_name: str,
@@ -692,10 +765,16 @@ def get_line_alerts(
         A validated list of alerts for the given line.
     """
     mbta_service = initialize_service()
-    raw_alerts = _as_mapping_list(
-        value=mbta_service.get_line_alerts(line_name=line_name),
-        context="MBTA line alerts",
-    )
+    try:
+        raw_alerts = _as_mapping_list(
+            value=mbta_service.get_line_alerts(line_name=line_name),
+            context="MBTA line alerts",
+        )
+    except TypeError:
+        raw_alerts = _get_line_alerts_from_cached_routes(
+            line_name=line_name,
+            mbta_service=mbta_service,
+        )
     return [
         AlertSchema.model_validate(
             {

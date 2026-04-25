@@ -175,6 +175,20 @@ class SharedPageLayoutTest(SimpleTestCase):
             'href="https://www.mbta.com/schedules/subway"',
         )
 
+    def test_shared_layout_includes_favicon(self) -> None:
+        """Ensure every shared page references the app favicon asset."""
+        response = self.client.get(reverse("subway:trains_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'rel="icon"',
+        )
+        self.assertContains(
+            response,
+            'href="/static/subway/favicon.svg"',
+        )
+
 
 class MapFacilitiesPageTest(SimpleTestCase):
     """Verify the Map and Facilities page network map experience."""
@@ -276,6 +290,8 @@ class MapFacilitiesPageTest(SimpleTestCase):
         self.assertIn("const STATION_MARKER_RADIUS = 7;", script_text)
         self.assertIn("const STATION_MARKER_WEIGHT = 3;", script_text)
         self.assertIn('const STATION_MARKER_FILL_COLOR = "#ffffff";', script_text)
+        self.assertIn("color.trim().startsWith(\"#\")", script_text)
+        self.assertIn("color.trim().slice(1)", script_text)
         self.assertIn('lineCap: "round"', script_text)
         self.assertIn('lineJoin: "round"', script_text)
         self.assertIn("opacity: 1,", script_text)
@@ -1383,6 +1399,56 @@ class ServiceSchemaTest(SimpleTestCase):
         self.assertEqual(alerts[0].headline, "Shuttle buses replace service")
         self.assertEqual(alerts[0].severity, 5)
 
+    def test_get_line_alerts_falls_back_to_cached_route_alerts(
+        self,
+    ) -> None:
+        """Ensure upstream alert sort failures still return validated alerts."""
+        fake_service = self._build_fake_mbta_service(
+            line_alerts_error=TypeError("severity comparison failed"),
+            lines=[
+                {
+                    "name": "Green Line",
+                    "route_id": ["Green-B", "Green-C"],
+                    "stations": [],
+                },
+            ],
+            route_alerts_by_route={
+                "Green-B": [
+                    {
+                        "id": "alert-2",
+                        "attributes": {
+                            "header": "Service change",
+                            "description": "Use shuttle buses.",
+                            "severity": None,
+                        },
+                    },
+                ],
+                "Green-C": [
+                    {
+                        "id": "alert-1",
+                        "attributes": {
+                            "header": "Minor delay",
+                            "description": None,
+                            "severity": 3,
+                        },
+                    },
+                ],
+            },
+        )
+
+        with patch(
+            "subway.services.initialize_service",
+            return_value=fake_service,
+        ):
+            alerts = services.get_line_alerts(line_name="Green Line")
+
+        self.assertEqual(
+            [alert.id for alert in alerts],
+            ["alert-2", "alert-1"],
+        )
+        self.assertIsNone(alerts[0].severity)
+        self.assertEqual(alerts[1].severity, 3)
+
     def test_get_predictions_maps_route_and_status_fields(self) -> None:
         """Ensure prediction fields match the app schema contract."""
         fake_service = self._build_fake_mbta_service(
@@ -1550,8 +1616,10 @@ class ServiceSchemaTest(SimpleTestCase):
         station_payload: dict[str, object] | None = None,
         station_facilities: list[str] | None = None,
         alert_payloads: list[dict[str, object]] | None = None,
+        line_alerts_error: Exception | None = None,
         prediction_payloads: list[dict[str, object]] | None = None,
         lines: list[dict[str, object]] | None = None,
+        route_alerts_by_route: dict[str, list[dict[str, object]]] | None = None,
     ) -> object:
         """Create a fake MBTA client with predictable schema payloads.
 
@@ -1561,8 +1629,10 @@ class ServiceSchemaTest(SimpleTestCase):
             station_payload: Optional raw station payload for `get_station`.
             station_facilities: Optional raw facilities list.
             alert_payloads: Optional raw alerts list.
+            line_alerts_error: Optional exception raised by `get_line_alerts`.
             prediction_payloads: Optional raw predictions list.
             lines: Optional cached line payloads for membership checks.
+            route_alerts_by_route: Optional raw route-alert lookup for fallback.
 
         Returns:
             A fake MBTA client object exposing the app's required methods.
@@ -1581,7 +1651,9 @@ class ServiceSchemaTest(SimpleTestCase):
                 self._station_payload = station_payload
                 self._station_facilities = station_facilities or []
                 self._alert_payloads = alert_payloads or []
+                self._line_alerts_error = line_alerts_error
                 self._prediction_payloads = prediction_payloads or []
+                self._route_alerts_by_route = route_alerts_by_route or {}
 
             def get_line_names(
                 self,
@@ -1623,7 +1695,17 @@ class ServiceSchemaTest(SimpleTestCase):
             ) -> list[dict[str, object]]:
                 """Return the configured fake line alerts."""
                 _ = line_name
+                if self._line_alerts_error is not None:
+                    raise self._line_alerts_error
                 return self._alert_payloads
+
+            def _get_route_alerts(
+                self,
+                *,
+                route: str,
+            ) -> list[dict[str, object]]:
+                """Return fallback raw alerts for one route."""
+                return self._route_alerts_by_route.get(route, [])
 
             def get_predictions(
                 self,

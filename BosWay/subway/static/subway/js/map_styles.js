@@ -7,10 +7,17 @@
     const STATION_MARKER_WEIGHT = 3;
     const STATION_MARKER_FILL_COLOR = "#ffffff";
 
-    const getLineColor = ({ color }) =>
-        typeof color === "string" && color.trim().length > 0
-            ? `#${color.trim()}`
-            : DEFAULT_LINE_COLOR;
+    const getLineColor = ({ color }) => {
+        if (typeof color !== "string" || color.trim().length === 0) {
+            return DEFAULT_LINE_COLOR;
+        }
+
+        const normalizedColor = color.trim().startsWith("#")
+            ? color.trim().slice(1)
+            : color.trim();
+
+        return normalizedColor ? `#${normalizedColor}` : DEFAULT_LINE_COLOR;
+    };
 
     const createLineStyle = ({ color }) => ({
         color: getLineColor({ color }),

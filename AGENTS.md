@@ -29,6 +29,7 @@ python manage.py runserver
 - For Trains & Alerts station prediction popups, store `stationId` and `stationName` on each Leaflet station marker, fetch `/api/stations/<id>/predictions` on marker click, and group the client-side results by line while capping each group at four rows.
 - For Trains & Alerts station prediction popups, bind the Leaflet popup with explicit `keepInView`, `closeOnEscapeKey`, `closeOnClick`, `maxHeight`, and popup `className` options, then coordinate marker/popup mouseleave handling with a short close timer so the popup stays usable while the pointer moves from the marker into the popup.
 - For Leaflet pages that should share MBTA route/station visuals, keep the common stroke and station-ring options in one shared asset such as `subway/static/subway/js/map_styles.js`, and load it before each page-specific map script so both pages stay visually in sync.
+- When MBTA line colors flow from backend JSON into shared Leaflet styling helpers, normalize optional leading `#` characters before building CSS color strings so routes and station rings do not render with invalid `##RRGGBB` values.
 - For Leaflet pages that should share the same map-shell or popup boundary styling, define the shared selectors once in `subway/static/subway/css/style.css` and keep the page-specific classes only for content unique to one page.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
@@ -49,8 +50,10 @@ python manage.py runserver
 - The previous root-level Django files are no longer the active app location; new implementation work should happen inside `BosWay/`.
 - `DATABASES = {}` is exposed by Django as the dummy backend during runtime/tests, so assertions should check for `django.db.backends.dummy` rather than expecting a literal empty dict.
 - For JSON API views, return short JSON `404`/`500` responses instead of falling back to Django's default HTML error pages, and log the failing line number when catching unexpected exceptions.
+- The sibling `MBTA-API/MBTA_class.py` alert sorter can raise `TypeError` when upstream severities are `None`; keep the fallback in `BosWay/subway/services.py` that rebuilds line alerts from cached route IDs so line selection stays usable even when the upstream helper crashes.
 - If Ralph tracking files disagree with the `BosWay/` implementation state, verify the live code and tests first, then sync `ralph/projects/mbta-subway/prd.json` instead of re-implementing an already-finished story.
 - Keep `README.md` aligned with the live `BosWay/` layout, page script names, and `/api/lines` / `/api/stations` routes; older root-level paths and endpoint shapes are legacy documentation only.
+- Keep a favicon linked from `BosWay/subway/templates/subway/base.html`; missing it creates browser-console `404` noise that can fail manual verification or browser automation runs even when the feature logic works.
 
 ## Dependencies
 - The Django project depends on the repo-level virtual environment at `.venv/`.

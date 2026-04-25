@@ -20,13 +20,23 @@ const POPUP_CLOSE_DELAY_MS = 180;
 const POPUP_AUTO_PAN_PADDING = 24;
 const mapStyles = window.BosWayMapStyles ?? {};
 const DEFAULT_LINE_COLOR = mapStyles.DEFAULT_LINE_COLOR ?? "#1f2937";
+const normalizeLineColor =
+    mapStyles.getLineColor ??
+    (({ color }) => {
+        if (typeof color !== "string" || color.trim().length === 0) {
+            return DEFAULT_LINE_COLOR;
+        }
+
+        const normalizedColor = color.trim().startsWith("#")
+            ? color.trim().slice(1)
+            : color.trim();
+
+        return normalizedColor ? `#${normalizedColor}` : DEFAULT_LINE_COLOR;
+    });
 const createLineStyle =
     mapStyles.createLineStyle ??
     (({ color }) => ({
-        color:
-            typeof color === "string" && color.trim().length > 0
-                ? `#${color.trim()}`
-                : DEFAULT_LINE_COLOR,
+        color: normalizeLineColor({ color }),
         lineCap: "round",
         lineJoin: "round",
         opacity: 1,
@@ -35,10 +45,7 @@ const createLineStyle =
 const createStationMarkerStyle =
     mapStyles.createStationMarkerStyle ??
     (({ color }) => ({
-        color:
-            typeof color === "string" && color.trim().length > 0
-                ? `#${color.trim()}`
-                : DEFAULT_LINE_COLOR,
+        color: normalizeLineColor({ color }),
         fillColor: "#ffffff",
         fillOpacity: 1,
         lineCap: "round",
