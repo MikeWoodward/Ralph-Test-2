@@ -3,8 +3,10 @@
 from datetime import UTC
 from datetime import datetime
 import importlib
+import json
 from pathlib import Path
 import re
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.conf import settings
@@ -18,6 +20,9 @@ from pydantic import ValidationError
 
 from subway import services
 from subway.apps import SubwayConfig
+from subway.chrome_test_runner import ChromeTestResult
+from subway.chrome_test_runner import ChromeTestRun
+from subway.chrome_test_runner import write_chrome_test_artifacts
 from subway.schemas import AlertSchema
 from subway.schemas import FacilitySchema
 from subway.schemas import LineSchema
@@ -1803,3 +1808,115 @@ class ServiceSchemaTest(SimpleTestCase):
                 return self._prediction_payloads
 
         return FakeMBTAService()
+
+
+class ChromeArtifactWriterTest(SimpleTestCase):
+    """Verify the story 6.4 Chrome artifact output format."""
+
+    def test_write_chrome_test_artifacts_writes_json_case_records(
+        self,
+    ) -> None:
+        """Ensure the JSON artifact records each executed test case."""
+        with TemporaryDirectory() as temporary_directory:
+            output_directory = Path(temporary_directory)
+            test_run = self._build_test_run(
+                results=(
+                    ChromeTestResult(
+                        test_id="chrome-001",
+                        test_name="Trains page loads",
+                        timestamp="2026-04-25T12:00:00+00:00",
+                        status="pass",
+                    ),
+                    ChromeTestResult(
+                        test_id="chrome-002",
+                        test_name="Alerts render",
+                        timestamp="2026-04-25T12:01:00+00:00",
+                        status="fail",
+                        details="Timeout waiting for alerts.",
+                    ),
+                ),
+            )
+
+            json_path, _ = write_chrome_test_artifacts(
+                output_directory=output_directory,
+                test_run=test_run,
+            )
+
+            self.assertTrue(json_path.exists())
+            self.assertEqual(
+                json.loads(json_path.read_text(encoding="utf-8")),
+                [
+                    {
+                        "test_id": "chrome-001",
+                        "test_name": "Trains page loads",
+                        "timestamp": "2026-04-25T12:00:00+00:00",
+                        "status": "pass",
+                        "details": "",
+                    },
+                    {
+                        "test_id": "chrome-002",
+                        "test_name": "Alerts render",
+                        "timestamp": "2026-04-25T12:01:00+00:00",
+                        "status": "fail",
+                        "details": "Timeout waiting for alerts.",
+                    },
+                ],
+            )
+
+    def test_write_chrome_test_artifacts_writes_markdown_summary(
+        self,
+    ) -> None:
+        """Ensure the Markdown artifact reports totals and failures."""
+        with TemporaryDirectory() as temporary_directory:
+            output_directory = Path(temporary_directory)
+            test_run = self._build_test_run(
+                results=(
+                    ChromeTestResult(
+                        test_id="chrome-001",
+                        test_name="Trains page loads",
+                        timestamp="2026-04-25T12:00:00+00:00",
+                        status="pass",
+                    ),
+                    ChromeTestResult(
+                        test_id="chrome-002",
+                        test_name="Alerts render",
+                        timestamp="2026-04-25T12:01:00+00:00",
+                        status="fail",
+                        details="Timeout waiting for alerts.",
+                    ),
+                ),
+            )
+
+            _, markdown_path = write_chrome_test_artifacts(
+                output_directory=output_directory,
+                test_run=test_run,
+            )
+            markdown_text = markdown_path.read_text(encoding="utf-8")
+
+            self.assertTrue(markdown_path.exists())
+            self.assertIn("# Chrome Test Summary", markdown_text)
+            self.assertIn("- Total tests run: 2", markdown_text)
+            self.assertIn("- Total passed: 1", markdown_text)
+            self.assertIn("- Total failed: 1", markdown_text)
+            self.assertIn("`chrome-002` Alerts render", markdown_text)
+            self.assertIn("Timeout waiting for alerts.", markdown_text)
+
+    @staticmethod
+    def _build_test_run(
+        *,
+        results: tuple[ChromeTestResult, ...],
+    ) -> ChromeTestRun:
+        """Return a small Chrome test run for artifact writer tests.
+
+        Args:
+            results: The executed per-case Chrome results.
+
+        Returns:
+            A small Chrome test run payload.
+        """
+        return ChromeTestRun(
+            base_url="http://127.0.0.1:8000",
+            browser_name="chrome",
+            browser_version="135.0.0.0",
+            results=results,
+        )

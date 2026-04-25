@@ -1,0 +1,44 @@
+[
+  {
+    "test_id": "chrome-001",
+    "test_name": "Trains page loads and populates the line dropdown",
+    "timestamp": "2026-04-25T12:18:27.579763+00:00",
+    "status": "pass",
+    "details": ""
+  },
+  {
+    "test_id": "chrome-002",
+    "test_name": "Selecting a line renders stations and alerts",
+    "timestamp": "2026-04-25T12:18:27.846582+00:00",
+    "status": "pass",
+    "details": ""
+  },
+  {
+    "test_id": "chrome-003",
+    "test_name": "Station predictions popup opens on the trains page",
+    "timestamp": "2026-04-25T12:18:28.565262+00:00",
+    "status": "pass",
+    "details": ""
+  },
+  {
+    "test_id": "chrome-004",
+    "test_name": "Map and facilities page renders the network and legend",
+    "timestamp": "2026-04-25T12:18:29.256084+00:00",
+    "status": "pass",
+    "details": ""
+  },
+  {
+    "test_id": "chrome-005",
+    "test_name": "Station facilities popup opens on the map page",
+    "timestamp": "2026-04-25T12:18:29.811557+00:00",
+    "status": "pass",
+    "details": ""
+  },
+  {
+    "test_id": "chrome-006",
+    "test_name": "About page shows credits and MBTA acknowledgment",
+    "timestamp": "2026-04-25T12:18:30.756668+00:00",
+    "status": "pass",
+    "details": ""
+  }
+]

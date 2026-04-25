@@ -18,6 +18,7 @@ python manage.py runserver
 - Use `BosWay/subway/templates/subway/` and `BosWay/subway/static/subway/` for app-owned templates and static assets.
 - Shared page navigation lives in `BosWay/subway/templates/subway/base.html`; page views should pass both `page_title` and `active_page` so the title stays `BosWay - <page>` and the correct nav tab is highlighted.
 - Page-specific frontend behavior should be loaded from each template's `page_scripts` block with a dedicated asset under `BosWay/subway/static/subway/js/` instead of inlining scripts into `base.html`.
+- For browser-verification artifacts, run `../.venv/bin/python run_chrome_tests.py` from `BosWay/`; the runner reuses an already-running local server at `127.0.0.1:8000` when available, otherwise starts its own `manage.py runserver`, then writes per-case JSON and Markdown results to the repo-root `test-results/` directory.
 - When a page needs third-party frontend assets, add them with a page-specific `extra_head` block and/or that page's `page_scripts` block instead of loading them globally for the whole site.
 - When a page needs a full-width map layout, add a page-specific wrapper class in the template and keep the shared `page-content` shell generic instead of changing the centered card styles used by other pages.
 - For Leaflet views that redraw one selected route, keep the rendered polylines and station markers inside one `L.featureGroup`, remove that group before drawing the next selection, and call `fitBounds()` on the replacement group so the viewport follows the active route.
