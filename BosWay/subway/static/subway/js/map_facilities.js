@@ -8,8 +8,8 @@ const TILE_LAYER_ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">' +
     "OpenStreetMap</a> contributors";
 const SUBWAY_SYSTEM_BOUNDS = [
-    [42.2279, -71.1912],
-    [42.4368, -70.9860],
+    [42.2000, -71.2600],
+    [42.4400, -70.9800],
 ];
 const MAP_PADDING = [24, 24];
 const POPUP_MAX_WIDTH = 320;

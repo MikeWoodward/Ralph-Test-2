@@ -31,6 +31,7 @@ python manage.py runserver
 - For Leaflet pages that should share MBTA route/station visuals, keep the common stroke and station-ring options in one shared asset such as `subway/static/subway/js/map_styles.js`, and load it before each page-specific map script so both pages stay visually in sync.
 - When MBTA line colors flow from backend JSON into shared Leaflet styling helpers, normalize optional leading `#` characters before building CSS color strings so routes and station rings do not render with invalid `##RRGGBB` values.
 - For Leaflet pages that should share the same map-shell or popup boundary styling, define the shared selectors once in `subway/static/subway/css/style.css` and keep the page-specific classes only for content unique to one page.
+- Keep the shared fallback full-system bounds in `subway/static/subway/js/trains_alerts.js` and `subway/static/subway/js/map_facilities.js` aligned with the outermost live subway stations so default/reset map states do not clip edge stations.
 - Keep project-level placeholders in `BosWay/templates/` and `BosWay/static/` when settings point to those directories.
 - The repo root `.env` file remains the server-side location for configuration values.
 - MBTA integration lives in `BosWay/subway/services.py`: load the repo-root `.env`, reference the sibling `MBTA-API/MBTA_class.py`, and reuse the module-level singleton instead of creating per-request clients.
@@ -54,6 +55,7 @@ python manage.py runserver
 - If Ralph tracking files disagree with the `BosWay/` implementation state, verify the live code and tests first, then sync `ralph/projects/mbta-subway/prd.json` instead of re-implementing an already-finished story.
 - Keep `README.md` aligned with the live `BosWay/` layout, page script names, and `/api/lines` / `/api/stations` routes; older root-level paths and endpoint shapes are legacy documentation only.
 - Keep a favicon linked from `BosWay/subway/templates/subway/base.html`; missing it creates browser-console `404` noise that can fail manual verification or browser automation runs even when the feature logic works.
+- The shared full-system bounds can drift as MBTA station data changes; when updating them, verify both scripts still cover edge stations such as the Green Line D branch western stops and Red Line Braintree.
 
 ## Dependencies
 - The Django project depends on the repo-level virtual environment at `.venv/`.

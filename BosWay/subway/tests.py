@@ -4,6 +4,7 @@ from datetime import UTC
 from datetime import datetime
 import importlib
 from pathlib import Path
+import re
 from unittest.mock import patch
 
 from django.conf import settings
@@ -396,6 +397,91 @@ class SharedMapExperienceTest(SimpleTestCase):
             ".map-facilities-page__station-leaflet-popup "
             ".leaflet-popup-content {",
             stylesheet_text,
+        )
+
+
+class MapBoundsVerificationTest(SimpleTestCase):
+    """Verify the shared full-system bounds cover the subway network."""
+
+    _BOUNDARY_STATIONS = (
+        ("Braintree", 42.2078543, -71.0011385),
+        ("Eliot", 42.319045, -71.216684),
+        ("Newton Centre", 42.329443, -71.192414),
+        ("Newton Highlands", 42.322381, -71.205509),
+        ("Riverside", 42.337352, -71.252685),
+        ("Waban", 42.325845, -71.230609),
+        ("Woodland", 42.332902, -71.243362),
+    )
+    _SYSTEM_BOUNDS_PATTERN = re.compile(
+        r"const SUBWAY_SYSTEM_BOUNDS = \[\s*"
+        r"\[\s*([-0-9.]+),\s*([-0-9.]+)\s*\],\s*"
+        r"\[\s*([-0-9.]+),\s*([-0-9.]+)\s*\],\s*"
+        r"\];",
+        flags=re.MULTILINE,
+    )
+
+    def test_map_scripts_share_matching_full_system_bounds(self) -> None:
+        """Ensure both pages use the same fallback subway system bounds."""
+        trains_script_text = self._read_static_asset(
+            relative_path="subway/js/trains_alerts.js",
+        )
+        map_facilities_script_text = self._read_static_asset(
+            relative_path="subway/js/map_facilities.js",
+        )
+
+        self.assertEqual(
+            self._extract_system_bounds(script_text=trains_script_text),
+            self._extract_system_bounds(
+                script_text=map_facilities_script_text,
+            ),
+        )
+
+    def test_full_system_bounds_cover_known_edge_stations(self) -> None:
+        """Ensure reset/default bounds still include the route edge stations."""
+        trains_script_text = self._read_static_asset(
+            relative_path="subway/js/trains_alerts.js",
+        )
+        (
+            south_west_corner,
+            north_east_corner,
+        ) = self._extract_system_bounds(
+            script_text=trains_script_text,
+        )
+        min_latitude, min_longitude = south_west_corner
+        max_latitude, max_longitude = north_east_corner
+
+        for station_name, latitude, longitude in self._BOUNDARY_STATIONS:
+            with self.subTest(station_name=station_name):
+                self.assertLessEqual(min_latitude, latitude)
+                self.assertLessEqual(latitude, max_latitude)
+                self.assertLessEqual(min_longitude, longitude)
+                self.assertLessEqual(longitude, max_longitude)
+
+    def _read_static_asset(
+        self,
+        *,
+        relative_path: str,
+    ) -> str:
+        """Return the source text for one registered static asset."""
+        asset_path = finders.find(relative_path)
+
+        self.assertIsNotNone(asset_path)
+        return Path(asset_path).read_text(encoding="utf-8")
+
+    def _extract_system_bounds(
+        self,
+        *,
+        script_text: str,
+    ) -> tuple[tuple[float, float], tuple[float, float]]:
+        """Parse the shared system-bounds constant from a map script."""
+        if match := self._SYSTEM_BOUNDS_PATTERN.search(script_text):
+            return (
+                (float(match.group(1)), float(match.group(2))),
+                (float(match.group(3)), float(match.group(4))),
+            )
+
+        raise AssertionError(
+            "Expected the map script to define SUBWAY_SYSTEM_BOUNDS.",
         )
 
 
